@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<full-backup-content>
+    <!-- Android Keystore keys are device-bound, so encrypted preferences cannot be restored. -->
+    <exclude domain="sharedpref" path="panthraa_session.xml" />
+    <exclude domain="sharedpref" path="panthraa_offline_review_cache.xml" />
+</full-backup-content>

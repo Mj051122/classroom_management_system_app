@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="utf-8"?>
+<appwidget-provider xmlns:android="http://schemas.android.com/apk/res/android"
+    android:description="@string/schedule_widget_description"
+    android:initialLayout="@layout/panthraa_schedule_widget_loading"
+    android:maxResizeHeight="360dp"
+    android:maxResizeWidth="420dp"
+    android:minHeight="72dp"
+    android:minResizeHeight="72dp"
+    android:minResizeWidth="140dp"
+    android:minWidth="140dp"
+    android:previewLayout="@layout/panthraa_schedule_widget_loading"
+    android:resizeMode="horizontal|vertical"
+    android:targetCellHeight="2"
+    android:targetCellWidth="4"
+    android:updatePeriodMillis="0"
+    android:widgetCategory="home_screen" />

@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<data-extraction-rules>
+    <cloud-backup>
+        <exclude domain="sharedpref" path="panthraa_session.xml" />
+        <exclude domain="sharedpref" path="panthraa_offline_review_cache.xml" />
+    </cloud-backup>
+    <device-transfer>
+        <exclude domain="sharedpref" path="panthraa_session.xml" />
+        <exclude domain="sharedpref" path="panthraa_offline_review_cache.xml" />
+    </device-transfer>
+</data-extraction-rules>
