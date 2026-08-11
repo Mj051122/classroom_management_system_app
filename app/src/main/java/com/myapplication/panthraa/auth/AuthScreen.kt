@@ -24,8 +24,13 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Visibility
+import androidx.compose.material.icons.filled.VisibilityOff
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
@@ -35,6 +40,7 @@ import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.ui.Alignment
@@ -42,10 +48,12 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.text.TextRange
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
+import androidx.compose.ui.text.input.TextFieldValue
 import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
@@ -68,8 +76,8 @@ private val SlateText = Color(0xFF0F172A)
 private val MutedText = Color(0xFF64748B)
 private val FieldBackground = Color(0xFFF8FAFC)
 private val CapsuleBackground = Color(0xFFF1F5F9)
-private val ProfessorTeal = Color(0xFF0F766E)
-private val ProfessorSoft = Color(0xFFF0FDFA)
+private val ProfessorTeal = Color(0xFF1E3A8A)
+private val ProfessorSoft = Color(0xFFF0F4FF)
 private val StudentSoft = Color(0xFFF5F8FF)
 private val ProfessorOrange = Color(0xFFF97316)
 
@@ -79,10 +87,15 @@ fun AuthScreen(
     onRoleSelected: (UserRole) -> Unit,
     onIdNumberChanged: (String) -> Unit,
     onFullNameChanged: (String) -> Unit,
+    onEmailChanged: (String) -> Unit,
+    onCurrentPasswordChanged: (String) -> Unit,
     onPasswordChanged: (String) -> Unit,
     onConfirmPasswordChanged: (String) -> Unit,
+    onOtpChanged: (String) -> Unit,
     onSubmit: () -> Unit,
     onToggleMode: () -> Unit,
+    onOpenForgotPassword: () -> Unit,
+    onOpenExistingAccountUpgrade: () -> Unit,
     onMessageShown: () -> Unit,
 ) {
     val snackbarHostState = remember { SnackbarHostState() }
@@ -117,10 +130,15 @@ fun AuthScreen(
                 onRoleSelected = onRoleSelected,
                 onIdNumberChanged = onIdNumberChanged,
                 onFullNameChanged = onFullNameChanged,
+                onEmailChanged = onEmailChanged,
+                onCurrentPasswordChanged = onCurrentPasswordChanged,
                 onPasswordChanged = onPasswordChanged,
                 onConfirmPasswordChanged = onConfirmPasswordChanged,
+                onOtpChanged = onOtpChanged,
                 onSubmit = onSubmit,
                 onToggleMode = onToggleMode,
+                onOpenForgotPassword = onOpenForgotPassword,
+                onOpenExistingAccountUpgrade = onOpenExistingAccountUpgrade,
             )
         }
 
@@ -188,14 +206,23 @@ private fun AuthCard(
     onRoleSelected: (UserRole) -> Unit,
     onIdNumberChanged: (String) -> Unit,
     onFullNameChanged: (String) -> Unit,
+    onEmailChanged: (String) -> Unit,
+    onCurrentPasswordChanged: (String) -> Unit,
     onPasswordChanged: (String) -> Unit,
     onConfirmPasswordChanged: (String) -> Unit,
+    onOtpChanged: (String) -> Unit,
     onSubmit: () -> Unit,
     onToggleMode: () -> Unit,
+    onOpenForgotPassword: () -> Unit,
+    onOpenExistingAccountUpgrade: () -> Unit,
 ) {
     val isRegister = uiState.mode == AuthMode.Register
+    val isForgotPassword = uiState.mode == AuthMode.ForgotPassword
+    val isLogin = uiState.mode == AuthMode.Login
+    val isUpgrade = uiState.mode == AuthMode.UpgradeExistingAccount
     val isOnline = uiState.connectivityStatus == ConnectivityStatus.Online
-    val fieldsEnabled = isOnline && uiState.selectedRole != null && !uiState.isLoading
+    val needsRole = isRegister && uiState.emailAuthStage == EmailAuthStage.Form
+    val fieldsEnabled = isOnline && !uiState.isLoading && (!needsRole || uiState.selectedRole != null)
     val selectedRole = uiState.selectedRole
     val accentColor = selectedRole?.accentColor() ?: PanthraBlue
 
@@ -213,7 +240,13 @@ private fun AuthCard(
             horizontalAlignment = Alignment.CenterHorizontally,
         ) {
             Text(
-                text = if (isRegister) "Register" else "Login",
+                text = when {
+                    isForgotPassword && uiState.emailAuthStage == EmailAuthStage.SetPassword -> "Choose New Password"
+                    isForgotPassword -> "Reset Password"
+                    isUpgrade -> "Upgrade Existing Account"
+                    isRegister -> "Register"
+                    else -> "Login"
+                },
                 color = SlateText,
                 fontSize = 28.sp,
                 fontWeight = FontWeight.Bold,
@@ -222,27 +255,29 @@ private fun AuthCard(
 
             Spacer(modifier = Modifier.height(24.dp))
 
-            Text(
-                text = "Select a role",
-                color = MutedText,
-                style = MaterialTheme.typography.labelLarge,
-                modifier = Modifier.fillMaxWidth(),
-            )
+            if (isRegister && uiState.emailAuthStage == EmailAuthStage.Form) {
+                Text(
+                    text = "Select a role",
+                    color = MutedText,
+                    style = MaterialTheme.typography.labelLarge,
+                    modifier = Modifier.fillMaxWidth(),
+                )
 
-            Spacer(modifier = Modifier.height(10.dp))
+                Spacer(modifier = Modifier.height(10.dp))
 
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(10.dp),
-            ) {
-                UserRole.entries.forEach { role ->
-                    RoleCapsule(
-                        role = role,
-                        selected = uiState.selectedRole == role,
-                        enabled = isOnline && !uiState.isLoading,
-                        onClick = { onRoleSelected(role) },
-                        modifier = Modifier.weight(1f),
-                    )
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(10.dp),
+                ) {
+                    UserRole.entries.forEach { role ->
+                        RoleCapsule(
+                            role = role,
+                            selected = uiState.selectedRole == role,
+                            enabled = isOnline && !uiState.isLoading,
+                            onClick = { onRoleSelected(role) },
+                            modifier = Modifier.weight(1f),
+                        )
+                    }
                 }
             }
 
@@ -260,50 +295,65 @@ private fun AuthCard(
 
             Spacer(modifier = Modifier.height(20.dp))
 
-            PanthraTextField(
-                value = uiState.idNumber,
-                onValueChange = onIdNumberChanged,
-                label = "ID Number",
-                placeholder = "24-6072",
-                enabled = fieldsEnabled,
-                keyboardType = KeyboardType.Text,
-            )
-
-            if (isRegister) {
-                Spacer(modifier = Modifier.height(14.dp))
-                PanthraTextField(
-                    value = uiState.fullName,
-                    onValueChange = onFullNameChanged,
-                    label = "Full Name",
-                    placeholder = "Juan Dela Cruz",
-                    enabled = fieldsEnabled,
-                    keyboardType = KeyboardType.Text,
-                )
-            }
-
-            Spacer(modifier = Modifier.height(14.dp))
-
-            PanthraTextField(
-                value = uiState.password,
-                onValueChange = onPasswordChanged,
-                label = "Password",
-                placeholder = "password0322",
-                enabled = fieldsEnabled,
-                keyboardType = KeyboardType.Password,
-                visualTransformation = PasswordVisualTransformation(),
-            )
-
-            if (isRegister) {
-                Spacer(modifier = Modifier.height(14.dp))
-                PanthraTextField(
-                    value = uiState.confirmPassword,
-                    onValueChange = onConfirmPasswordChanged,
-                    label = "Confirm Password",
-                    placeholder = "password0322",
-                    enabled = fieldsEnabled,
-                    keyboardType = KeyboardType.Password,
-                    visualTransformation = PasswordVisualTransformation(),
-                )
+            when (uiState.mode) {
+                AuthMode.Login -> {
+                    EmailField(uiState.email, onEmailChanged, fieldsEnabled)
+                    Spacer(modifier = Modifier.height(14.dp))
+                    PasswordField(uiState.password, onPasswordChanged, "Password", fieldsEnabled)
+                }
+                AuthMode.Register -> when (uiState.emailAuthStage) {
+                    EmailAuthStage.Form -> {
+                        IdNumberField(uiState.idNumber, onIdNumberChanged, fieldsEnabled)
+                        Spacer(modifier = Modifier.height(14.dp))
+                        PanthraTextField(
+                            value = uiState.fullName,
+                            onValueChange = onFullNameChanged,
+                            label = "Full Name",
+                            placeholder = "Juan Dela Cruz",
+                            enabled = fieldsEnabled,
+                            keyboardType = KeyboardType.Text,
+                        )
+                        Spacer(modifier = Modifier.height(14.dp))
+                        EmailField(uiState.email, onEmailChanged, fieldsEnabled)
+                        Spacer(modifier = Modifier.height(14.dp))
+                        PasswordField(uiState.password, onPasswordChanged, "Password", fieldsEnabled)
+                        Spacer(modifier = Modifier.height(14.dp))
+                        PasswordField(uiState.confirmPassword, onConfirmPasswordChanged, "Confirm Password", fieldsEnabled)
+                    }
+                    EmailAuthStage.VerifyOtp -> EmailOtpField(uiState.otp, onOtpChanged, fieldsEnabled)
+                    EmailAuthStage.SetPassword -> Unit
+                }
+                AuthMode.ForgotPassword -> when (uiState.emailAuthStage) {
+                    EmailAuthStage.Form -> EmailField(uiState.email, onEmailChanged, fieldsEnabled)
+                    EmailAuthStage.VerifyOtp -> EmailOtpField(uiState.otp, onOtpChanged, fieldsEnabled)
+                    EmailAuthStage.SetPassword -> {
+                        PasswordField(uiState.password, onPasswordChanged, "New Password", fieldsEnabled)
+                        Spacer(modifier = Modifier.height(14.dp))
+                        PasswordField(uiState.confirmPassword, onConfirmPasswordChanged, "Confirm Password", fieldsEnabled)
+                    }
+                }
+                AuthMode.UpgradeExistingAccount -> when (uiState.emailAuthStage) {
+                    EmailAuthStage.Form -> {
+                        Text(
+                            text = "Use your current ID and password once, then verify your email.",
+                            color = MutedText,
+                            style = MaterialTheme.typography.bodySmall,
+                            modifier = Modifier.fillMaxWidth(),
+                        )
+                        Spacer(modifier = Modifier.height(14.dp))
+                        IdNumberField(uiState.idNumber, onIdNumberChanged, fieldsEnabled)
+                        Spacer(modifier = Modifier.height(14.dp))
+                        PasswordField(uiState.currentPassword, onCurrentPasswordChanged, "Current Password", fieldsEnabled)
+                        Spacer(modifier = Modifier.height(14.dp))
+                        EmailField(uiState.email, onEmailChanged, fieldsEnabled)
+                        Spacer(modifier = Modifier.height(14.dp))
+                        PasswordField(uiState.password, onPasswordChanged, "New Password", fieldsEnabled)
+                        Spacer(modifier = Modifier.height(14.dp))
+                        PasswordField(uiState.confirmPassword, onConfirmPasswordChanged, "Confirm New Password", fieldsEnabled)
+                    }
+                    EmailAuthStage.VerifyOtp -> EmailOtpField(uiState.otp, onOtpChanged, fieldsEnabled)
+                    EmailAuthStage.SetPassword -> Unit
+                }
             }
 
             Spacer(modifier = Modifier.height(22.dp))
@@ -311,7 +361,13 @@ private fun AuthCard(
             GradientAuthButton(
                 text = when {
                     !isOnline -> "INTERNET REQUIRED"
-                    isRegister -> "REGISTER"
+                    isRegister && uiState.emailAuthStage == EmailAuthStage.Form -> "SEND VERIFICATION CODE"
+                    isRegister -> "VERIFY EMAIL"
+                    isForgotPassword && uiState.emailAuthStage == EmailAuthStage.Form -> "SEND RESET CODE"
+                    isForgotPassword && uiState.emailAuthStage == EmailAuthStage.VerifyOtp -> "VERIFY CODE"
+                    isForgotPassword -> "RESET PASSWORD"
+                    isUpgrade && uiState.emailAuthStage == EmailAuthStage.Form -> "SEND VERIFICATION CODE"
+                    isUpgrade -> "VERIFY EMAIL"
                     else -> "LOGIN"
                 },
                 accent = accentColor,
@@ -320,6 +376,30 @@ private fun AuthCard(
                 onClick = onSubmit,
             )
 
+            if (isLogin) {
+                Spacer(modifier = Modifier.height(6.dp))
+                TextButton(
+                    enabled = isOnline && !uiState.isLoading,
+                    onClick = onOpenForgotPassword,
+                ) {
+                    Text(
+                        text = "Forgot password?",
+                        color = PanthraBlue,
+                        textAlign = TextAlign.Center,
+                    )
+                }
+                TextButton(
+                    enabled = isOnline && !uiState.isLoading,
+                    onClick = onOpenExistingAccountUpgrade,
+                ) {
+                    Text(
+                        text = "Existing ID account? Upgrade to email",
+                        color = PanthraBlue,
+                        textAlign = TextAlign.Center,
+                    )
+                }
+            }
+
             Spacer(modifier = Modifier.height(12.dp))
 
             TextButton(
@@ -327,16 +407,79 @@ private fun AuthCard(
                 onClick = onToggleMode,
             ) {
                 Text(
-                    text = if (isRegister) {
-                        "Already have an account? Login"
-                    } else {
-                        "Don't have an account? Register"
+                    text = when {
+                        isForgotPassword || isUpgrade -> "Back to login"
+                        isRegister -> "Already have an account? Login"
+                        else -> "Don't have an account? Register"
                     },
                     color = PanthraBlue,
                     textAlign = TextAlign.Center,
                 )
             }
         }
+    }
+}
+
+@Composable
+private fun IdNumberField(value: String, onValueChange: (String) -> Unit, enabled: Boolean) {
+    PanthraTextField(
+        value = value,
+        onValueChange = onValueChange,
+        label = "ID Number",
+        placeholder = "24-6072",
+        enabled = enabled,
+        keyboardType = KeyboardType.Text,
+    )
+}
+
+@Composable
+private fun EmailField(value: String, onValueChange: (String) -> Unit, enabled: Boolean) {
+    PanthraTextField(
+        value = value,
+        onValueChange = onValueChange,
+        label = "Email Address",
+        placeholder = "name@example.com",
+        enabled = enabled,
+        keyboardType = KeyboardType.Email,
+    )
+}
+
+@Composable
+private fun PasswordField(
+    value: String,
+    onValueChange: (String) -> Unit,
+    label: String,
+    enabled: Boolean,
+) {
+    PanthraTextField(
+        value = value,
+        onValueChange = onValueChange,
+        label = label,
+        placeholder = "password0322",
+        enabled = enabled,
+        keyboardType = KeyboardType.Password,
+        visualTransformation = PasswordVisualTransformation(),
+        passwordVisibilityToggle = true,
+    )
+}
+
+@Composable
+private fun EmailOtpField(value: String, onValueChange: (String) -> Unit, enabled: Boolean) {
+    Column(modifier = Modifier.fillMaxWidth()) {
+        Text(
+            text = "Enter the 8-digit code sent to your email.",
+            color = MutedText,
+            style = MaterialTheme.typography.bodySmall,
+        )
+        Spacer(modifier = Modifier.height(12.dp))
+        PanthraTextField(
+            value = value,
+            onValueChange = onValueChange,
+            label = "Email Verification Code",
+            placeholder = "12345678",
+            enabled = enabled,
+            keyboardType = KeyboardType.Number,
+        )
     }
 }
 
@@ -436,7 +579,24 @@ private fun PanthraTextField(
     enabled: Boolean,
     keyboardType: KeyboardType,
     visualTransformation: VisualTransformation = VisualTransformation.None,
+    passwordVisibilityToggle: Boolean = false,
 ) {
+    val isPasswordVisible = remember { mutableStateOf(false) }
+    val editableText = remember {
+        mutableStateOf(TextFieldValue(text = value, selection = TextRange(value.length)))
+    }
+    val syncedEditableText = editableText.value.let { currentValue ->
+        if (currentValue.text == value) {
+            currentValue
+        } else {
+            val selection = (currentValue.selection.end + value.length - currentValue.text.length)
+                .coerceIn(0, value.length)
+            TextFieldValue(text = value, selection = TextRange(selection))
+        }
+    }
+    LaunchedEffect(value) {
+        editableText.value = syncedEditableText
+    }
     val keyboardOptions = remember(keyboardType) {
         KeyboardOptions(keyboardType = keyboardType)
     }
@@ -458,13 +618,20 @@ private fun PanthraTextField(
             fontWeight = FontWeight.SemiBold,
         )
         BasicTextField(
-            value = value,
-            onValueChange = onValueChange,
+            value = syncedEditableText,
+            onValueChange = { updatedValue ->
+                editableText.value = updatedValue
+                onValueChange(updatedValue.text)
+            },
             modifier = Modifier.fillMaxWidth(),
             enabled = enabled,
             singleLine = true,
             keyboardOptions = keyboardOptions,
-            visualTransformation = visualTransformation,
+            visualTransformation = if (passwordVisibilityToggle && isPasswordVisible.value) {
+                VisualTransformation.None
+            } else {
+                visualTransformation
+            },
             cursorBrush = Brush.verticalGradient(listOf(PanthraBlue, PanthraBlue)),
             textStyle = TextStyle(
                 color = textColor,
@@ -479,7 +646,7 @@ private fun PanthraTextField(
                         .clip(RoundedCornerShape(14.dp))
                         .background(if (enabled) FieldBackground else Color(0xFFF1F5F9))
                         .border(1.dp, borderColor, RoundedCornerShape(14.dp))
-                        .padding(horizontal = 16.dp),
+                        .padding(start = 16.dp, end = if (passwordVisibilityToggle) 4.dp else 16.dp),
                     contentAlignment = Alignment.CenterStart,
                 ) {
                     if (value.isEmpty()) {
@@ -489,7 +656,33 @@ private fun PanthraTextField(
                             fontSize = 16.sp,
                         )
                     }
-                    innerTextField()
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(end = if (passwordVisibilityToggle) 48.dp else 0.dp),
+                    ) {
+                        innerTextField()
+                    }
+                    if (passwordVisibilityToggle) {
+                        IconButton(
+                            onClick = { isPasswordVisible.value = !isPasswordVisible.value },
+                            modifier = Modifier.align(Alignment.CenterEnd),
+                        ) {
+                            Icon(
+                                imageVector = if (isPasswordVisible.value) {
+                                    Icons.Filled.VisibilityOff
+                                } else {
+                                    Icons.Filled.Visibility
+                                },
+                                contentDescription = if (isPasswordVisible.value) {
+                                    "Hide password"
+                                } else {
+                                    "Show password"
+                                },
+                                tint = MutedText,
+                            )
+                        }
+                    }
                 }
             },
         )
@@ -526,7 +719,7 @@ private fun GradientAuthButton(
                 .background(
                     Brush.horizontalGradient(
                         colors = if (enabled) {
-                            listOf(accent, if (accent == ProfessorTeal) Color(0xFF14B8A6) else PanthraLightBlue)
+                            listOf(accent, if (accent == ProfessorTeal) Color(0xFF3B5FCC) else PanthraLightBlue)
                         } else if (isLoading) {
                             listOf(Color.White, Color.White)
                         } else {
@@ -590,6 +783,6 @@ private fun UserRole.cardBackground(): Color {
 private fun UserRole.screenBackground(): Color {
     return when (this) {
         UserRole.Student -> Color(0xFFF3F7FF)
-        UserRole.Professor -> Color(0xFFF2FBF8)
+        UserRole.Professor -> Color(0xFFF0F4FF)
     }
 }

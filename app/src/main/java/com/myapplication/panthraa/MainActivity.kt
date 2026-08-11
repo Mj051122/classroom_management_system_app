@@ -173,10 +173,15 @@ private fun PanthraaApp(openScheduleSignal: Int = 0) {
                     onRoleSelected = viewModel::selectRole,
                     onIdNumberChanged = viewModel::updateIdNumber,
                     onFullNameChanged = viewModel::updateFullName,
+                    onEmailChanged = viewModel::updateEmail,
+                    onCurrentPasswordChanged = viewModel::updateCurrentPassword,
+                    onOtpChanged = viewModel::updateOtp,
                     onPasswordChanged = viewModel::updatePassword,
                     onConfirmPasswordChanged = viewModel::updateConfirmPassword,
                     onSubmit = viewModel::submit,
                     onToggleMode = viewModel::toggleMode,
+                    onOpenForgotPassword = viewModel::openForgotPassword,
+                    onOpenExistingAccountUpgrade = viewModel::openExistingAccountUpgrade,
                     onMessageShown = viewModel::clearMessages,
                 )
             }

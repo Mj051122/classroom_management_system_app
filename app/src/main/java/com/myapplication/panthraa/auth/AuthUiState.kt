@@ -6,6 +6,14 @@ import com.myapplication.panthraa.model.ConnectivityStatus
 enum class AuthMode {
     Login,
     Register,
+    ForgotPassword,
+    UpgradeExistingAccount,
+}
+
+enum class EmailAuthStage {
+    Form,
+    VerifyOtp,
+    SetPassword,
 }
 
 enum class UserRole(val label: String, val value: String) {
@@ -18,8 +26,12 @@ data class AuthUiState(
     val selectedRole: UserRole? = null,
     val idNumber: String = "",
     val fullName: String = "",
+    val email: String = "",
+    val currentPassword: String = "",
     val password: String = "",
     val confirmPassword: String = "",
+    val otp: String = "",
+    val emailAuthStage: EmailAuthStage = EmailAuthStage.Form,
     val isLoading: Boolean = false,
     val isRestoringSession: Boolean = false,
     val errorMessage: String? = null,

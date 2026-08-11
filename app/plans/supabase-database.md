@@ -16,6 +16,7 @@ Last reviewed/applied from Codex on 2026-07-14.
 - `../../supabase_submission_format_file_required_patch.sql`
 - `../../supabase_assignment_schedule_manila_fix.sql`
 - `../../supabase_functional_contract_fix.sql` (current contract; apply last)
+- `../../supabase_auth_phone_reset_patch.sql` (auth patch; idempotent, apply to any existing database)
 
 ## Required Tables
 
@@ -46,8 +47,14 @@ Last reviewed/applied from Codex on 2026-07-14.
 - `edit_attempts integer`
 - `score integer`
 
+`public.app_users`:
+
+- `phone_number text` (unique when non-blank; required at registration)
+
 ## Required RPCs
 
+- `register_app_user(text, text, text, text, text)` taking `p_phone_number` (validates PH format, raises on duplicate phone)
+- `reset_app_user_password(text, text, text)` matching ID number + registered phone before setting a new password
 - `create_class_assignment(..., p_assignment_type, p_submission_format, p_file_url, p_requires_file)`
 - `update_class_assignment(..., p_assignment_type, p_submission_format, p_file_url, p_requires_file)`
 - `get_class_assignments(uuid, uuid)` returning `submission_format` and `requires_file`
@@ -100,6 +107,34 @@ For every future Supabase change, append a dated entry here. Record the project 
   - Direct PostgREST named-argument preflight matched the new schema and returned the expected ownership error rather than an RPC/schema-cache missing error.
   - Android `testDebugUnitTest assembleDebug` passed: 27 tests, 0 failures, 0 errors, 0 skipped. Debug APK: `../build/outputs/apk/debug/app-debug.apk`.
 - Intentionally unchanged: authentication, users, RLS, storage policies, and backend authentication logic. Two unreferenced assignment storage objects were not deleted. Safe upload cleanup is deferred until the authentication/storage-policy review because adding public delete permission would be unsafe.
+
+### 2026-08-10 - Auth: phone number on registration + password reset
+
+- Status: SQL authored and app-aligned; NOT yet applied to project `ulxbeelcvbawkpcutaom` (apply `supabase_auth_phone_reset_patch.sql` in the Supabase SQL editor to deploy).
+- Forward SQL: `../../supabase_auth_phone_reset_patch.sql`
+  - SHA-256: `0F07D3449A2A74FEE08A6FB2A04AB86B26226A9F58B8F3F1C124B538EB4F6F64`
+  - Size: 4,470 bytes; 131 lines.
+- Pre-change database rollback backup: not taken yet. Take a backup or export `public.app_users` before applying if existing phone values must be preserved.
+- Application method: paste the patch into the Supabase SQL editor and run (single script, idempotent). Ends with `notify pgrst, 'reload schema';`.
+- Database changes:
+  - Ensured `public.app_users.phone_number text` exists (`add column if not exists`).
+  - Added partial unique index `app_users_phone_number_key` (unique only when phone is non-blank, so legacy rows without phones are untouched).
+  - Replaced `register_app_user` with a 5-argument version that stores and validates `p_phone_number` (`09XXXXXXXXX` or `+639XXXXXXXXX`), raising `Phone number already registered.` on duplicate.
+  - Added `reset_app_user_password(p_id_number, p_phone_number, p_new_password)`; verifies ID + phone match and account is not blocked, then sets the trimmed new password. Single generic error message does not reveal which accounts exist.
+  - Kept plaintext (trimmed) password storage to match the current scheme; hashing is a separate future migration.
+- Mirror files kept in sync so future resets do not diverge: `supabase_fresh_reset_schema.sql` (drop list, table, index, both RPCs) and `supabase_login_fix.sql` (register RPC signature).
+- Android changes:
+  - `../src/main/java/com/myapplication/panthraa/auth/AuthUiState.kt` adds `phone` and `AuthMode.ForgotPassword`.
+  - `../src/main/java/com/myapplication/panthraa/auth/AuthRepository.kt` passes phone to `register` and adds `resetPassword`.
+  - `../src/main/java/com/myapplication/panthraa/auth/AuthViewModel.kt` adds phone state/validation, a forgot-password submit flow, and user-friendly error mapping.
+  - `../src/main/java/com/myapplication/panthraa/auth/AuthScreen.kt` adds the phone field (register), the forgot-password view, and a "Forgot password?" link, reusing the existing card/field/button design.
+  - `../src/main/java/com/myapplication/panthraa/MainActivity.kt` wires the new callbacks.
+  - `../src/test/java/com/myapplication/panthraa/auth/AuthPhoneValidationTest.kt` covers phone format validation.
+- Verification:
+  - Android `testDebugUnitTest assembleDebug` passed: 30 tests, 0 failures, 0 errors, 0 skipped. 
+  - SQL patch is idempotent and was reviewed against `supabase_fresh_reset_schema.sql` and `supabase_login_fix.sql` for signature consistency.
+  - Live Supabase behavior test not yet performed (patch not yet applied).
+- Intentionally unchanged: UUID `app_users.id` generation, login semantics, RLS, and all assignment/grading/attendance RPCs.
 
 ## Safety Rules
 

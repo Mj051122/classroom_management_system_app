@@ -8,7 +8,6 @@ data class AppUser(
     val id: String = "",
     @SerialName("id_number")
     val idNumber: String = "",
-    val password: String = "",
     @SerialName("full_name")
     val fullName: String = "",
     val email: String = "",
