@@ -1195,6 +1195,13 @@ internal fun ProfilePreviewCard(
             maxLines = 1,
             overflow = TextOverflow.Ellipsis,
         )
+        Text(
+            text = user.email.ifBlank { "" },
+            color = Color(0xFF64748B),
+            fontSize = 13.sp,
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis,
+        )
         
         Spacer(modifier = Modifier.size(4.dp))
         
@@ -1487,6 +1494,13 @@ internal fun SettingsProfileCard(
                         overflow = TextOverflow.Ellipsis,
                     )
                 }
+                Text(
+                    text = user.email,
+                    color = Color(0xFF64748B),
+                    fontSize = if (compact) 12.sp else 14.sp,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                )
                 Text(
                     text = user.role.uppercase(),
                     fontSize = courseSize,

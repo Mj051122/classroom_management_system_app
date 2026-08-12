@@ -88,14 +88,12 @@ fun AuthScreen(
     onIdNumberChanged: (String) -> Unit,
     onFullNameChanged: (String) -> Unit,
     onEmailChanged: (String) -> Unit,
-    onCurrentPasswordChanged: (String) -> Unit,
     onPasswordChanged: (String) -> Unit,
     onConfirmPasswordChanged: (String) -> Unit,
     onOtpChanged: (String) -> Unit,
     onSubmit: () -> Unit,
     onToggleMode: () -> Unit,
     onOpenForgotPassword: () -> Unit,
-    onOpenExistingAccountUpgrade: () -> Unit,
     onMessageShown: () -> Unit,
 ) {
     val snackbarHostState = remember { SnackbarHostState() }
@@ -131,14 +129,12 @@ fun AuthScreen(
                 onIdNumberChanged = onIdNumberChanged,
                 onFullNameChanged = onFullNameChanged,
                 onEmailChanged = onEmailChanged,
-                onCurrentPasswordChanged = onCurrentPasswordChanged,
                 onPasswordChanged = onPasswordChanged,
                 onConfirmPasswordChanged = onConfirmPasswordChanged,
                 onOtpChanged = onOtpChanged,
                 onSubmit = onSubmit,
                 onToggleMode = onToggleMode,
                 onOpenForgotPassword = onOpenForgotPassword,
-                onOpenExistingAccountUpgrade = onOpenExistingAccountUpgrade,
             )
         }
 
@@ -207,19 +203,16 @@ private fun AuthCard(
     onIdNumberChanged: (String) -> Unit,
     onFullNameChanged: (String) -> Unit,
     onEmailChanged: (String) -> Unit,
-    onCurrentPasswordChanged: (String) -> Unit,
     onPasswordChanged: (String) -> Unit,
     onConfirmPasswordChanged: (String) -> Unit,
     onOtpChanged: (String) -> Unit,
     onSubmit: () -> Unit,
     onToggleMode: () -> Unit,
     onOpenForgotPassword: () -> Unit,
-    onOpenExistingAccountUpgrade: () -> Unit,
 ) {
     val isRegister = uiState.mode == AuthMode.Register
     val isForgotPassword = uiState.mode == AuthMode.ForgotPassword
     val isLogin = uiState.mode == AuthMode.Login
-    val isUpgrade = uiState.mode == AuthMode.UpgradeExistingAccount
     val isOnline = uiState.connectivityStatus == ConnectivityStatus.Online
     val needsRole = isRegister && uiState.emailAuthStage == EmailAuthStage.Form
     val fieldsEnabled = isOnline && !uiState.isLoading && (!needsRole || uiState.selectedRole != null)
@@ -243,7 +236,6 @@ private fun AuthCard(
                 text = when {
                     isForgotPassword && uiState.emailAuthStage == EmailAuthStage.SetPassword -> "Choose New Password"
                     isForgotPassword -> "Reset Password"
-                    isUpgrade -> "Upgrade Existing Account"
                     isRegister -> "Register"
                     else -> "Login"
                 },
@@ -332,28 +324,6 @@ private fun AuthCard(
                         PasswordField(uiState.confirmPassword, onConfirmPasswordChanged, "Confirm Password", fieldsEnabled)
                     }
                 }
-                AuthMode.UpgradeExistingAccount -> when (uiState.emailAuthStage) {
-                    EmailAuthStage.Form -> {
-                        Text(
-                            text = "Use your current ID and password once, then verify your email.",
-                            color = MutedText,
-                            style = MaterialTheme.typography.bodySmall,
-                            modifier = Modifier.fillMaxWidth(),
-                        )
-                        Spacer(modifier = Modifier.height(14.dp))
-                        IdNumberField(uiState.idNumber, onIdNumberChanged, fieldsEnabled)
-                        Spacer(modifier = Modifier.height(14.dp))
-                        PasswordField(uiState.currentPassword, onCurrentPasswordChanged, "Current Password", fieldsEnabled)
-                        Spacer(modifier = Modifier.height(14.dp))
-                        EmailField(uiState.email, onEmailChanged, fieldsEnabled)
-                        Spacer(modifier = Modifier.height(14.dp))
-                        PasswordField(uiState.password, onPasswordChanged, "New Password", fieldsEnabled)
-                        Spacer(modifier = Modifier.height(14.dp))
-                        PasswordField(uiState.confirmPassword, onConfirmPasswordChanged, "Confirm New Password", fieldsEnabled)
-                    }
-                    EmailAuthStage.VerifyOtp -> EmailOtpField(uiState.otp, onOtpChanged, fieldsEnabled)
-                    EmailAuthStage.SetPassword -> Unit
-                }
             }
 
             Spacer(modifier = Modifier.height(22.dp))
@@ -366,8 +336,6 @@ private fun AuthCard(
                     isForgotPassword && uiState.emailAuthStage == EmailAuthStage.Form -> "SEND RESET CODE"
                     isForgotPassword && uiState.emailAuthStage == EmailAuthStage.VerifyOtp -> "VERIFY CODE"
                     isForgotPassword -> "RESET PASSWORD"
-                    isUpgrade && uiState.emailAuthStage == EmailAuthStage.Form -> "SEND VERIFICATION CODE"
-                    isUpgrade -> "VERIFY EMAIL"
                     else -> "LOGIN"
                 },
                 accent = accentColor,
@@ -388,16 +356,6 @@ private fun AuthCard(
                         textAlign = TextAlign.Center,
                     )
                 }
-                TextButton(
-                    enabled = isOnline && !uiState.isLoading,
-                    onClick = onOpenExistingAccountUpgrade,
-                ) {
-                    Text(
-                        text = "Existing ID account? Upgrade to email",
-                        color = PanthraBlue,
-                        textAlign = TextAlign.Center,
-                    )
-                }
             }
 
             Spacer(modifier = Modifier.height(12.dp))
@@ -408,7 +366,7 @@ private fun AuthCard(
             ) {
                 Text(
                     text = when {
-                        isForgotPassword || isUpgrade -> "Back to login"
+                        isForgotPassword -> "Back to login"
                         isRegister -> "Already have an account? Login"
                         else -> "Don't have an account? Register"
                     },

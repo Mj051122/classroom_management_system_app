@@ -66,6 +66,7 @@ import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Delete
+import androidx.compose.material.icons.filled.Email
 import androidx.compose.material.icons.filled.PersonAdd
 import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.Event
@@ -934,6 +935,8 @@ internal fun StudentProfileInfoCards(user: AppUser) {
         elevation = CardDefaults.cardElevation(defaultElevation = 1.dp),
     ) {
         Column {
+            ProfileInfoRow(icon = Icons.Filled.Email, label = "Email", value = user.email.ifBlank { "Not set" })
+            ProfileDivider()
             ProfileInfoRow(icon = Icons.Filled.PhotoCamera, label = "Phone", value = user.phoneNumber.orEmpty().ifBlank { "Not set" })
             ProfileDivider()
             ProfileInfoRow(icon = Icons.Outlined.Lightbulb, label = "Bio", value = user.bio.orEmpty().ifBlank { "No bio yet" })
@@ -1132,6 +1135,8 @@ internal fun ProfessorProfileDetailScreen(
                         elevation = CardDefaults.cardElevation(defaultElevation = 1.dp),
                     ) {
                         Column {
+                            ProfileInfoRow(icon = Icons.Filled.Email, label = "Email", value = user.email.ifBlank { "Not set" })
+                            ProfileDivider()
                             ProfileInfoRow(icon = Icons.Filled.PhotoCamera, label = "Phone", value = user.phoneNumber.orEmpty().ifBlank { "Not set" })
                             ProfileDivider()
                             ProfileInfoRow(icon = Icons.Outlined.Lightbulb, label = "Bio", value = user.bio.orEmpty().ifBlank { "No bio yet" })

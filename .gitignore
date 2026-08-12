@@ -20,3 +20,5 @@ tmp/
 supabase_*.sql
 number.md
 wholeapp.md
+AGENTS.md
+opencode.json

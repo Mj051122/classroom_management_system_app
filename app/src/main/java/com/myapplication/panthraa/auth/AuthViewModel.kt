@@ -124,10 +124,6 @@ class AuthViewModel(
         _uiState.update { it.copy(email = value.take(MAX_EMAIL_LENGTH)) }
     }
 
-    fun updateCurrentPassword(value: String) {
-        _uiState.update { it.copy(currentPassword = value) }
-    }
-
     fun updatePassword(value: String) {
         _uiState.update { it.copy(password = value) }
     }
@@ -147,7 +143,6 @@ class AuthViewModel(
                     AuthMode.Login -> AuthMode.Register
                     AuthMode.Register,
                     AuthMode.ForgotPassword,
-                    AuthMode.UpgradeExistingAccount,
                     -> AuthMode.Login
                 },
             )
@@ -156,10 +151,6 @@ class AuthViewModel(
 
     fun openForgotPassword() {
         _uiState.update { it.clearedAuthFields(mode = AuthMode.ForgotPassword, keepEmail = true) }
-    }
-
-    fun openExistingAccountUpgrade() {
-        _uiState.update { it.clearedAuthFields(mode = AuthMode.UpgradeExistingAccount) }
     }
 
     fun submit() {
@@ -187,7 +178,6 @@ class AuthViewModel(
 
                     AuthMode.Register -> submitRegistration(state)
                     AuthMode.ForgotPassword -> submitPasswordReset(state)
-                    AuthMode.UpgradeExistingAccount -> submitExistingAccountUpgrade(state)
                 }
             } catch (cancelled: CancellationException) {
                 throw cancelled
@@ -248,25 +238,6 @@ class AuthViewModel(
                     )
                 }
             }
-        }
-    }
-
-    private suspend fun submitExistingAccountUpgrade(state: AuthUiState) {
-        when (state.emailAuthStage) {
-            EmailAuthStage.Form -> {
-                repository.beginLegacyAccountUpgrade(
-                    idNumber = state.idNumber,
-                    currentPassword = state.currentPassword,
-                    email = state.email,
-                    newPassword = state.password,
-                )
-                moveToOtp("Verification code sent. Check your email.")
-            }
-            EmailAuthStage.VerifyOtp -> completeSignIn(
-                repository.completeLegacyAccountUpgrade(state.email, state.otp),
-                "Email sign-in is ready.",
-            )
-            EmailAuthStage.SetPassword -> error("Invalid existing-account upgrade step.")
         }
     }
 
@@ -373,11 +344,6 @@ class AuthViewModel(
                 EmailAuthStage.VerifyOtp -> validateOtp(state)
                 EmailAuthStage.SetPassword -> validateNewPassword(state)
             }
-            AuthMode.UpgradeExistingAccount -> when (state.emailAuthStage) {
-                EmailAuthStage.Form -> validateExistingAccountUpgrade(state)
-                EmailAuthStage.VerifyOtp -> validateOtp(state)
-                EmailAuthStage.SetPassword -> "Invalid existing-account upgrade step."
-            }
         }
     }
 
@@ -394,16 +360,6 @@ class AuthViewModel(
             state.idNumber.isBlank() -> "ID number is required."
             !ID_NUMBER_PATTERN.matches(state.idNumber.trim()) -> "ID number must use XX-XXXX format."
             state.fullName.isBlank() -> "Full name is required."
-            validateEmail(state.email) != null -> validateEmail(state.email)
-            else -> validateNewPassword(state)
-        }
-    }
-
-    private fun validateExistingAccountUpgrade(state: AuthUiState): String? {
-        return when {
-            state.idNumber.isBlank() -> "ID number is required."
-            !ID_NUMBER_PATTERN.matches(state.idNumber.trim()) -> "ID number must use XX-XXXX format."
-            state.currentPassword.isBlank() -> "Current password is required."
             validateEmail(state.email) != null -> validateEmail(state.email)
             else -> validateNewPassword(state)
         }
@@ -435,7 +391,7 @@ class AuthViewModel(
             rawMessage.contains("Invalid login credentials", ignoreCase = true) ->
                 "Invalid email or password."
             rawMessage.contains("not connected to an app profile", ignoreCase = true) ->
-                "This email has not been linked yet. Use Upgrade existing account."
+                "This email has not been linked yet. Register with this email first."
             rawMessage.contains("OTP", ignoreCase = true) || rawMessage.contains("token", ignoreCase = true) ->
                 "That code is invalid or expired. Request a new one."
             rawMessage.isBlank() -> "Something went wrong. Please try again."
@@ -455,7 +411,6 @@ class AuthViewModel(
         idNumber = "",
         fullName = "",
         email = if (keepEmail) email else "",
-        currentPassword = "",
         password = "",
         confirmPassword = "",
         otp = "",

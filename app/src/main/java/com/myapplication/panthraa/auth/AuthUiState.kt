@@ -7,7 +7,6 @@ enum class AuthMode {
     Login,
     Register,
     ForgotPassword,
-    UpgradeExistingAccount,
 }
 
 enum class EmailAuthStage {
@@ -27,7 +26,6 @@ data class AuthUiState(
     val idNumber: String = "",
     val fullName: String = "",
     val email: String = "",
-    val currentPassword: String = "",
     val password: String = "",
     val confirmPassword: String = "",
     val otp: String = "",

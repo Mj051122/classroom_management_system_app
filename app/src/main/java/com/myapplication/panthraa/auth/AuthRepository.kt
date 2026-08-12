@@ -71,38 +71,6 @@ class AuthRepository(
         client.auth.signOut()
     }
 
-    suspend fun beginLegacyAccountUpgrade(
-        idNumber: String,
-        currentPassword: String,
-        email: String,
-        newPassword: String,
-    ) {
-        client.postgrest.rpc(
-            function = "prepare_legacy_email_upgrade",
-            parameters = buildJsonObject {
-                put("p_id_number", idNumber.trim())
-                put("p_current_password", currentPassword)
-                put("p_email", email.normalizedEmail())
-            },
-        )
-        client.auth.signUpWith(Email) {
-            this.email = email.normalizedEmail()
-            this.password = newPassword
-        }
-    }
-
-    suspend fun completeLegacyAccountUpgrade(email: String, otp: String): AppUser {
-        client.auth.verifyEmailOtp(
-            type = OtpType.Email.SIGNUP,
-            email = email.normalizedEmail(),
-            token = otp.trim(),
-        )
-        return client.postgrest.rpc(
-            function = "complete_legacy_email_upgrade",
-        ).decodeSingleOrNull<AppUser>()
-            ?: error("Could not link your existing profile to this email.")
-    }
-
     suspend fun currentProfileOrNull(): AppUser? {
         if (client.auth.currentUserOrNull() == null) return null
         return client.postgrest.rpc(
