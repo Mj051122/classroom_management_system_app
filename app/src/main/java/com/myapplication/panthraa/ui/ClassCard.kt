@@ -152,7 +152,7 @@ fun StudentClassCard(
                             maxLines = 2,
                             overflow = TextOverflow.Ellipsis,
                         )
-                        classYearLabel(classItem.yearLevel)?.let { label ->
+                        classAcademicLabel(classItem)?.let { label ->
                             Text(
                                 text = label,
                                 color = Color.White.copy(alpha = 0.78f),
@@ -618,6 +618,15 @@ private fun classYearLabel(yearLevel: String?): String? {
         "fourth" -> "Fourth Year"
         else -> null
     }
+}
+
+private fun classAcademicLabel(classItem: StudentClass): String? {
+    return listOfNotNull(
+        profileYearLabel(classItem.yearLevel),
+        classItem.department?.trim()?.takeIf { it.isNotBlank() },
+        classItem.section?.trim()?.takeIf { it.isNotBlank() },
+        classItem.track?.trim()?.takeIf { it.isNotBlank() },
+    ).joinToString(" ").ifBlank { null }
 }
 
 @Composable

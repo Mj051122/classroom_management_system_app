@@ -443,13 +443,12 @@ class MainViewModel(
     fun loadAssignmentSubmissions(assignmentId: String) {
         val professor = _uiState.value.currentUser ?: return
         if (isOfflineWriteBlocked(readOnlyMessage = "Internet required to load submissions.")) {
-            _uiState.update { it.copy(assignmentSubmissions = emptyList(), isLoadingAssignmentSubmissions = false) }
+            _uiState.update { it.copy(isLoadingAssignmentSubmissions = false) }
             return
         }
         viewModelScope.launch {
             _uiState.update {
                 it.copy(
-                    assignmentSubmissions = emptyList(),
                     isLoadingAssignmentSubmissions = true,
                     message = null,
                 )
@@ -468,7 +467,6 @@ class MainViewModel(
                     if (handleConnectivityFailure(error)) return@onFailure
                     _uiState.update {
                         it.copy(
-                            assignmentSubmissions = emptyList(),
                             isLoadingAssignmentSubmissions = false,
                             message = ClassRepository.readableError(error),
                         )
@@ -533,27 +531,10 @@ class MainViewModel(
                     targetPoints = targetPoints,
                 )
             }.onSuccess { updatedSubmission ->
-                _uiState.update { state ->
-                    state.copy(
-                        assignmentSubmissions = state.assignmentSubmissions.map { submission ->
-                            if (submission.id == updatedSubmission.id) updatedSubmission else submission
-                        },
-                        professorGradeMonitorSubmissions = state.professorGradeMonitorSubmissions.map { submission ->
-                            if (submission.submissionId == updatedSubmission.id) {
-                                submission.copy(
-                                    score = updatedSubmission.score,
-                                    rawPercent = updatedSubmission.rawPercent,
-                                    convertedGrade = updatedSubmission.convertedGrade,
-                                )
-                            } else {
-                                submission
-                            }
-                        },
-                        isScoringSubmission = false,
-                        message = "Score saved.",
-                    )
-                }
+                loadAssignmentSubmissions(updatedSubmission.assignmentId)
                 loadClasses(professor)
+                loadProfessorGradeMonitor(professor)
+                _uiState.update { it.copy(isScoringSubmission = false, message = "Score saved.") }
             }.onFailure { error ->
                 if (handleConnectivityFailure(error)) return@onFailure
                 _uiState.update {
