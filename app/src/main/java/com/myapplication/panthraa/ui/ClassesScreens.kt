@@ -5590,7 +5590,8 @@ internal fun AssignmentSubmissionCard(
                     .padding(horizontal = 9.dp, vertical = 6.dp),
             ) {
                 Text(
-                    text = submission.score?.let { "$it/${submission.targetPoints.coerceAtLeast(1)}" } ?: "Needs score",
+                    text = submission.score?.let { "$it/${submission.targetPoints.coerceAtLeast(1)}" }
+                        ?: if (submission.editAttempts > 0) "Grade cleared" else "Needs score",
                     color = scoreTone,
                     fontWeight = FontWeight.ExtraBold,
                     fontSize = 11.sp,

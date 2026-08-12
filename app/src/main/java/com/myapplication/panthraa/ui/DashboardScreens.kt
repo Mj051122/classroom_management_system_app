@@ -5200,7 +5200,14 @@ internal fun ProfessorGradeEvidenceCard(submission: ProfessorGradeMonitorSubmiss
                     )
                 }
                 Column(horizontalAlignment = Alignment.End, verticalArrangement = Arrangement.spacedBy(2.dp)) {
-                    Text(score?.let { "$it/${submission.targetPoints.coerceAtLeast(1)}" } ?: "Pending", color = tone, fontWeight = FontWeight.ExtraBold, fontSize = 17.sp)
+                    Text(
+                        when {
+                            score != null -> "$score/${submission.targetPoints.coerceAtLeast(1)}"
+                            submission.editAttempts > 0 -> "Grade cleared"
+                            else -> "Pending"
+                        },
+                        color = tone, fontWeight = FontWeight.ExtraBold, fontSize = 17.sp,
+                    )
                     Text(score?.let { formatGradeNumber(submission.convertedGrade) } ?: "No score", color = Color(0xFF64748B), fontWeight = FontWeight.Bold, fontSize = 10.sp)
                 }
             }
