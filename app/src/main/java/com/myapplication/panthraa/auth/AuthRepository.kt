@@ -22,7 +22,13 @@ class AuthRepository(
             ?: error("This email account is not connected to an app profile yet.")
     }
 
-    suspend fun beginRegistration(email: String, password: String) {
+    suspend fun beginRegistration(email: String, password: String, idNumber: String) {
+        client.postgrest.rpc(
+            function = "check_id_number_available",
+            parameters = buildJsonObject {
+                put("p_id_number", idNumber.trim())
+            },
+        ).decodeAs<Boolean>()
         client.auth.signUpWith(Email) {
             this.email = email.normalizedEmail()
             this.password = password

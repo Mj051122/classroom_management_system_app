@@ -1880,6 +1880,10 @@ class MainViewModel(
         if (isOfflineWriteBlocked()) return
         val userId = _uiState.value.currentUser?.id ?: return
         val cleanName = fullName.trim()
+        if (cleanName.any(Char::isDigit)) {
+            _uiState.update { it.copy(message = "Name cannot contain numbers.", isUpdatingProfileDetails = false) }
+            return
+        }
         val cleanCourse = course?.trim()?.takeIf { it.isNotBlank() }
         val cleanYear = year?.trim()?.takeIf { it.isNotBlank() }
         val cleanSection = section?.trim()?.takeIf { it.isNotBlank() }
