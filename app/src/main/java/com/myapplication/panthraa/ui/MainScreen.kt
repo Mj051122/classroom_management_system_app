@@ -174,10 +174,6 @@ import com.airbnb.lottie.compose.LottieCompositionSpec
 import com.airbnb.lottie.compose.LottieConstants
 import com.airbnb.lottie.compose.animateLottieCompositionAsState
 import com.airbnb.lottie.compose.rememberLottieComposition
-import com.google.zxing.BarcodeFormat
-import com.google.zxing.qrcode.QRCodeWriter
-import com.journeyapps.barcodescanner.ScanContract
-import com.journeyapps.barcodescanner.ScanOptions
 import kotlin.math.round
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
@@ -592,15 +588,19 @@ fun MainScreen(
                     onJoinClass = viewModel::joinClass,
                     onApproveJoinRequest = viewModel::approveClassJoinRequest,
                     onRejectJoinRequest = viewModel::rejectClassJoinRequest,
-                    onCreateAssignment = { classId, title, instructions, category, targetPoints, startDate, endDate, startTime, endTime, assignmentType, submissionFormat, requiresFile, fileUri ->
-                        viewModel.createClassAssignment(classId, title, instructions, category, targetPoints, startDate, endDate, startTime, endTime, assignmentType, submissionFormat, requiresFile, fileUri)
+                    onCreateAssignment = { classId, title, instructions, category, targetPoints, startDate, endDate, startTime, endTime, assignmentType, submissionFormat, requiresFile, allowComments, fileUri ->
+                        viewModel.createClassAssignment(classId, title, instructions, category, targetPoints, startDate, endDate, startTime, endTime, assignmentType, submissionFormat, requiresFile, allowComments, fileUri)
                     },
-                    onUpdateAssignment = { assignmentId, title, instructions, category, targetPoints, startDate, endDate, startTime, endTime, assignmentType, submissionFormat, requiresFile, fileUri ->
-                        viewModel.updateClassAssignment(assignmentId, title, instructions, category, targetPoints, startDate, endDate, startTime, endTime, assignmentType, submissionFormat, requiresFile, fileUri)
+                    onUpdateAssignment = { assignmentId, title, instructions, category, targetPoints, startDate, endDate, startTime, endTime, assignmentType, submissionFormat, requiresFile, allowComments, fileUri ->
+                        viewModel.updateClassAssignment(assignmentId, title, instructions, category, targetPoints, startDate, endDate, startTime, endTime, assignmentType, submissionFormat, requiresFile, allowComments, fileUri)
                     },
                     onLoadAssignmentSubmissions = viewModel::loadAssignmentSubmissions,
                     onRefreshAssignmentSubmissions = viewModel::refreshAssignmentSubmissions,
-                    onRecordAttendance = viewModel::recordAttendanceByQr,
+                    onLoadAssignmentComments = viewModel::loadAssignmentComments,
+                    onRefreshAssignmentComments = viewModel::refreshAssignmentComments,
+                    onPostAssignmentComment = viewModel::postAssignmentComment,
+                    onDeleteAssignmentComment = viewModel::deleteAssignmentComment,
+                    onRecordAttendance = viewModel::recordAttendance,
                     onGradeSubmission = viewModel::gradeAssignmentSubmission,
                     onSubmitAssignment = viewModel::submitAssignment,
                     onRecordMaterialView = viewModel::recordMaterialView,
@@ -635,6 +635,10 @@ fun MainScreen(
                             scheduleEndTime = scheduleEndTime,
                         )
                     },
+                    onUpdateClass = { classId, className, subjectCode, section, track ->
+                        viewModel.updateProfessorClass(classId, className, subjectCode, section, track)
+                    },
+                    onDeleteClass = viewModel::deleteProfessorClass,
                 )
             }
             composable(BottomTab.Tasks.route) {

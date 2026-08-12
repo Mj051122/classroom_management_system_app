@@ -1,7 +1,5 @@
 package com.myapplication.panthraa.ui
 
-import android.Manifest
-import android.content.pm.PackageManager
 import android.graphics.Bitmap
 import android.graphics.pdf.PdfRenderer
 import android.content.Intent
@@ -63,11 +61,13 @@ import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Delete
+import androidx.compose.material.icons.filled.Lock
+import androidx.compose.material.icons.filled.Send
 import androidx.compose.material.icons.filled.PersonAdd
 import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.Event
 import androidx.compose.material.icons.filled.People
-import androidx.compose.material.icons.filled.PhotoCamera
+import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.School
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.filled.Logout
@@ -92,6 +92,7 @@ import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.DatePicker
 import androidx.compose.material3.DatePickerDialog
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SnackbarHost
@@ -140,7 +141,6 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
-import androidx.core.content.ContextCompat
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavGraph.Companion.findStartDestination
 import androidx.navigation.compose.NavHost
@@ -150,6 +150,7 @@ import androidx.navigation.compose.rememberNavController
 import com.myapplication.panthraa.R
 import com.myapplication.panthraa.data.OfflineImageCache
 import com.myapplication.panthraa.model.AppUser
+import com.myapplication.panthraa.model.AssignmentComment
 import com.myapplication.panthraa.model.AssignmentSubmission
 import com.myapplication.panthraa.model.AssignmentStatus
 import com.myapplication.panthraa.model.AttendanceStudent
@@ -167,10 +168,6 @@ import com.airbnb.lottie.compose.LottieCompositionSpec
 import com.airbnb.lottie.compose.LottieConstants
 import com.airbnb.lottie.compose.animateLottieCompositionAsState
 import com.airbnb.lottie.compose.rememberLottieComposition
-import com.google.zxing.BarcodeFormat
-import com.google.zxing.qrcode.QRCodeWriter
-import com.journeyapps.barcodescanner.ScanContract
-import com.journeyapps.barcodescanner.ScanOptions
 import kotlinx.coroutines.delay
 import kotlin.math.round
 import kotlinx.coroutines.Dispatchers
@@ -209,10 +206,14 @@ fun ClassesScreen(
     onJoinClass: (String) -> Unit,
     onApproveJoinRequest: (String, List<String>) -> Unit,
     onRejectJoinRequest: (String, List<String>) -> Unit,
-    onCreateAssignment: (String, String, String, String, Int, String?, String?, String?, String?, String, String, Boolean, Uri?) -> Unit,
-    onUpdateAssignment: (String, String, String, String, Int, String?, String?, String?, String?, String, String, Boolean, Uri?) -> Unit,
+    onCreateAssignment: (String, String, String, String, Int, String?, String?, String?, String?, String, String, Boolean, Boolean, Uri?) -> Unit,
+    onUpdateAssignment: (String, String, String, String, Int, String?, String?, String?, String?, String, String, Boolean, Boolean, Uri?) -> Unit,
     onLoadAssignmentSubmissions: (String) -> Unit,
     onRefreshAssignmentSubmissions: (String) -> Unit,
+    onLoadAssignmentComments: (String) -> Unit = {},
+    onRefreshAssignmentComments: (String) -> Unit = {},
+    onPostAssignmentComment: (String, String, String) -> Unit = { _, _, _ -> },
+    onDeleteAssignmentComment: (String) -> Unit = {},
     onRecordAttendance: (String, String) -> Unit,
     onGradeSubmission: (String, Int, Int) -> Unit,
     onSubmitAssignment: (String, String, Uri?) -> Unit,
@@ -229,6 +230,8 @@ fun ClassesScreen(
     onDashboardProfessorClassOpenConsumed: () -> Unit = {},
     dashboardRootResetToken: Int = 0,
     onCreateClass: (String, String, String, String, String, String, String?, Uri?, String, List<String>, String, String) -> Unit,
+    onUpdateClass: (String, String, String, String, String) -> Unit = { _, _, _, _, _ -> },
+    onDeleteClass: (String) -> Unit = {},
 ) {
     var selectedClass by remember { mutableStateOf<StudentClass?>(null) }
     var viewingClassmatesFor by remember { mutableStateOf<StudentClass?>(null) }
@@ -399,8 +402,8 @@ fun ClassesScreen(
                 isLoading = uiState.isLoadingAttendance,
                 isRecording = false,
                 internetRequired = internetRequired,
-                canScan = false,
-                studentQrUser = currentUser,
+                canMarkAttendance = false,
+                viewerUser = currentUser,
                 onLoadAttendance = onLoadAttendance,
                 isRefreshing = RefreshSurface.Attendance in uiState.refreshingSurfaces,
                 onRefreshAttendance = onRefreshAttendance,
@@ -414,10 +417,20 @@ fun ClassesScreen(
             StudentAssignmentDetailPage(
                 assignment = uiState.classAssignments.firstOrNull { it.id == assignment.id } ?: assignment,
                 classItem = classItem,
+                innerPadding = innerPadding,
                 isSubmitting = uiState.isSubmittingAssignment,
                 internetRequired = internetRequired,
+                comments = uiState.assignmentComments,
+                isLoadingComments = uiState.isLoadingAssignmentComments,
+                isPostingComment = uiState.isPostingComment,
+                isDeletingComment = uiState.isDeletingComment,
+                currentUserId = currentUser.id,
                 onSubmitAssignment = onSubmitAssignment,
                 onRecordMaterialView = onRecordMaterialView,
+                onLoadComments = onLoadAssignmentComments,
+                onRefreshComments = onRefreshAssignmentComments,
+                onPostComment = onPostAssignmentComment,
+                onDeleteComment = onDeleteAssignmentComment,
                 onOpenAttendance = { selectedStudentAttendanceAssignment = assignment },
                 onBack = { selectedStudentAssignment = null },
             )
@@ -477,9 +490,20 @@ fun ClassesScreen(
                 isDeleting = uiState.isDeletingAssignment,
                 isUpdating = uiState.isUpdatingAssignment,
                 internetRequired = internetRequired,
+                classItem = classItem,
+                innerPadding = innerPadding,
+                comments = uiState.assignmentComments,
+                isLoadingComments = uiState.isLoadingAssignmentComments,
+                isPostingComment = uiState.isPostingComment,
+                isDeletingComment = uiState.isDeletingComment,
+                currentUserId = currentUser.id,
                 onLoadSubmissions = onLoadAssignmentSubmissions,
                 isRefreshingSubmissions = RefreshSurface.Submissions in uiState.refreshingSurfaces,
                 onRefreshSubmissions = onRefreshAssignmentSubmissions,
+                onLoadComments = onLoadAssignmentComments,
+                onRefreshComments = onRefreshAssignmentComments,
+                onPostComment = onPostAssignmentComment,
+                onDeleteComment = onDeleteAssignmentComment,
                 onGradeSubmission = onGradeSubmission,
                 onDeleteAssignment = onDeleteAssignment,
                 onUpdateAssignment = onUpdateAssignment,
@@ -494,6 +518,8 @@ fun ClassesScreen(
                 assignments = uiState.classAssignments,
                 isLoadingAssignments = uiState.isLoadingAssignments,
                 isCreatingAssignment = uiState.isCreatingAssignment,
+                isUpdatingClass = uiState.isUpdatingClass,
+                isDeletingSubject = uiState.isDeletingSubject,
                 internetRequired = internetRequired,
                 onLoadAssignments = onLoadAssignments,
                 isRefreshingAssignments = RefreshSurface.Assignments in uiState.refreshingSurfaces,
@@ -501,6 +527,8 @@ fun ClassesScreen(
                 onCreateAssignment = onCreateAssignment,
                 onOpenAssignment = { selectedProfessorAssignment = it },
                 onOpenAttendance = { selectedAttendanceAssignment = it },
+                onUpdateClass = onUpdateClass,
+                onDeleteClass = onDeleteClass,
                 openUploadOnStart = openUploadForSelectedProfessorClass,
                 onUploadOpenConsumed = { openUploadForSelectedProfessorClass = false },
             onBack = {
@@ -1030,24 +1058,14 @@ internal fun ProfessorYearGrid(
         modifier = Modifier.fillMaxWidth(),
         verticalArrangement = Arrangement.spacedBy(12.dp),
     ) {
-        ProfessorClassYearOptions.chunked(2).forEach { rowOptions ->
-            Row(
+        ProfessorClassYearOptions.forEach { option ->
+            val count = classes.count { it.yearLevel.equals(option.value, ignoreCase = true) }
+            ProfessorYearCard(
+                option = option,
+                classCount = count,
+                onClick = { onOpenYear(option) },
                 modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(12.dp),
-            ) {
-                rowOptions.forEach { option ->
-                    val count = classes.count { it.yearLevel.equals(option.value, ignoreCase = true) }
-                    ProfessorYearCard(
-                        option = option,
-                        classCount = count,
-                        onClick = { onOpenYear(option) },
-                        modifier = Modifier.weight(1f),
-                    )
-                }
-                repeat(2 - rowOptions.size) {
-                    Spacer(modifier = Modifier.weight(1f))
-                }
-            }
+            )
         }
     }
 }
@@ -1081,8 +1099,7 @@ internal fun ProfessorYearAccessCard(
     } else {
         "No classes"
     }
-    val statusText = if (hasClasses) "Ready to manage" else "Set up first class"
-    val cardHeight = if (compact) 82.dp else 138.dp
+    val cardHeight = if (compact) 82.dp else 118.dp
     Card(
         modifier = modifier
             .height(cardHeight)
@@ -1220,30 +1237,6 @@ internal fun ProfessorYearAccessCard(
                             color = Color(0xFF475569),
                             fontWeight = FontWeight.Bold,
                             fontSize = 12.sp,
-                            maxLines = 1,
-                            overflow = TextOverflow.Ellipsis,
-                        )
-                    }
-                    Row(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .clip(RoundedCornerShape(10.dp))
-                            .background(option.accent.copy(alpha = if (hasClasses) 0.13f else 0.08f))
-                            .padding(horizontal = 9.dp, vertical = 6.dp),
-                        horizontalArrangement = Arrangement.spacedBy(6.dp),
-                        verticalAlignment = Alignment.CenterVertically,
-                    ) {
-                        Box(
-                            modifier = Modifier
-                                .size(7.dp)
-                                .clip(CircleShape)
-                                .background(option.accent),
-                        )
-                        Text(
-                            text = statusText,
-                            color = option.accent,
-                            fontWeight = FontWeight.ExtraBold,
-                            fontSize = 10.sp,
                             maxLines = 1,
                             overflow = TextOverflow.Ellipsis,
                         )
@@ -2860,18 +2853,23 @@ internal fun ProfessorClassroomPage(
     assignments: List<ClassAssignment>,
     isLoadingAssignments: Boolean,
     isCreatingAssignment: Boolean,
+    isUpdatingClass: Boolean = false,
+    isDeletingSubject: Boolean = false,
     internetRequired: Boolean,
     onLoadAssignments: (String) -> Unit,
     isRefreshingAssignments: Boolean,
     onRefreshAssignments: (String) -> Unit,
-    onCreateAssignment: (String, String, String, String, Int, String?, String?, String?, String?, String, String, Boolean, Uri?) -> Unit,
+    onCreateAssignment: (String, String, String, String, Int, String?, String?, String?, String?, String, String, Boolean, Boolean, Uri?) -> Unit,
     onOpenAssignment: (ClassAssignment) -> Unit,
     onOpenAttendance: (ClassAssignment) -> Unit,
     openUploadOnStart: Boolean = false,
     onUploadOpenConsumed: () -> Unit = {},
+    onUpdateClass: (String, String, String, String, String) -> Unit = { _, _, _, _, _ -> },
+    onDeleteClass: (String) -> Unit = {},
     onBack: () -> Unit,
 ) {
     var showUploadDialog by remember { mutableStateOf(false) }
+    var showSubjectEditor by remember { mutableStateOf(false) }
     val sortedUploads = remember(assignments) { assignments.sortedByNewestUpload() }
     val assignmentCount = remember(assignments) {
         assignments.count { !it.assignmentType.equals("material", ignoreCase = true) }
@@ -2913,6 +2911,7 @@ internal fun ProfessorClassroomPage(
                     isCreatingAssignment = isCreatingAssignment,
                     onBack = onBack,
                     onUpload = { showUploadDialog = true },
+                    onEdit = { showSubjectEditor = true },
                 )
             }
 
@@ -2977,13 +2976,214 @@ internal fun ProfessorClassroomPage(
     if (showUploadDialog) {
         UploadAssignmentDialog(
             isCreating = isCreatingAssignment,
+            scheduleDays = classItem.scheduleDays,
+            scheduleStartTime = classItem.scheduleStartTime,
+            scheduleEndTime = classItem.scheduleEndTime,
             onDismiss = { showUploadDialog = false },
-            onUpload = { title, instructions, category, targetPoints, startDate, endDate, startTime, endTime, assignmentType, submissionFormat, requiresFile, fileUri ->
-                onCreateAssignment(classItem.id, title, instructions, category, targetPoints, startDate, endDate, startTime, endTime, assignmentType, submissionFormat, requiresFile, fileUri)
+            onUpload = { title, instructions, category, targetPoints, startDate, endDate, startTime, endTime, assignmentType, submissionFormat, requiresFile, allowComments, fileUri ->
+                onCreateAssignment(classItem.id, title, instructions, category, targetPoints, startDate, endDate, startTime, endTime, assignmentType, submissionFormat, requiresFile, allowComments, fileUri)
                 showUploadDialog = false
             },
         )
     }
+
+    if (showSubjectEditor) {
+        ProfessorSubjectEditorDialog(
+            classItem = classItem,
+            isSaving = isUpdatingClass,
+            isDeleting = isDeletingSubject,
+            onDismiss = { showSubjectEditor = false },
+            onSave = { className, subjectCode, section, track ->
+                onUpdateClass(classItem.id, className, subjectCode, section, track)
+                showSubjectEditor = false
+            },
+            onDelete = {
+                onDeleteClass(classItem.id)
+                showSubjectEditor = false
+            },
+        )
+    }
+}
+
+@Composable
+internal fun ProfessorSubjectEditorDialog(
+    classItem: ProfessorClass,
+    isSaving: Boolean,
+    isDeleting: Boolean,
+    onDismiss: () -> Unit,
+    onSave: (className: String, subjectCode: String, section: String, track: String) -> Unit,
+    onDelete: () -> Unit,
+) {
+    var className by remember(classItem.id) { mutableStateOf(classItem.className) }
+    var subjectCode by remember(classItem.id) { mutableStateOf(classItem.subjectCode) }
+    var section by remember(classItem.id) { mutableStateOf(classItem.section.orEmpty()) }
+    var track by remember(classItem.id) { mutableStateOf(classItem.track.orEmpty()) }
+    var confirmingDelete by remember(classItem.id) { mutableStateOf(false) }
+    var remainingSeconds by remember(classItem.id) { mutableStateOf(5) }
+    val busy = isSaving || isDeleting
+    val canSave = className.trim().isNotEmpty() && subjectCode.trim().isNotEmpty()
+
+    LaunchedEffect(confirmingDelete) {
+        if (confirmingDelete) {
+            remainingSeconds = 5
+            while (remainingSeconds > 0) {
+                delay(1000)
+                remainingSeconds -= 1
+            }
+        }
+    }
+
+    AlertDialog(
+        onDismissRequest = { if (!busy) onDismiss() },
+        shape = RoundedCornerShape(24.dp),
+        containerColor = DialogSurface,
+        title = {
+            if (confirmingDelete) {
+                DialogHeader(
+                    title = "Delete ${classItem.displaySubjectCode}?",
+                    subtitle = "This action cannot be undone.",
+                    icon = Icons.Filled.Delete,
+                    tint = Color(0xFFBE123C),
+                )
+            } else {
+                DialogHeader(
+                    title = "Edit subject",
+                    subtitle = "Fix the class name, subject code, section, or track.",
+                    icon = Icons.Filled.Edit,
+                )
+            }
+        },
+        text = {
+            if (confirmingDelete) {
+                Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                    Text(
+                        text = "This will permanently delete ${classItem.displayClassName} and all of its assignments, submissions, and pending join requests. This cannot be undone.",
+                        color = Color(0xFF334155),
+                        fontWeight = FontWeight.SemiBold,
+                    )
+                    Text(
+                        text = "Enrolled: ${classItem.studentCount.coerceAtLeast(0)} ${if (classItem.studentCount == 1) "student" else "students"}.",
+                        color = Color(0xFF64748B),
+                        style = MaterialTheme.typography.bodySmall,
+                    )
+                }
+            } else {
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .heightIn(max = 520.dp)
+                        .verticalScroll(rememberScrollState())
+                        .padding(bottom = 4.dp),
+                    verticalArrangement = Arrangement.spacedBy(8.dp),
+                ) {
+                    OutlinedTextField(
+                        value = className,
+                        onValueChange = { className = it },
+                        modifier = Modifier.fillMaxWidth(),
+                        label = { Text("Class name") },
+                        singleLine = true,
+                        enabled = !busy,
+                        shape = RoundedCornerShape(16.dp),
+                        colors = modernTextFieldColors(),
+                    )
+                    OutlinedTextField(
+                        value = subjectCode,
+                        onValueChange = { subjectCode = it.take(12).uppercase() },
+                        modifier = Modifier.fillMaxWidth(),
+                        label = { Text("Subject code") },
+                        singleLine = true,
+                        enabled = !busy,
+                        shape = RoundedCornerShape(16.dp),
+                        colors = modernTextFieldColors(),
+                    )
+                    OutlinedTextField(
+                        value = section,
+                        onValueChange = { section = it.take(30) },
+                        modifier = Modifier.fillMaxWidth(),
+                        label = { Text("Section") },
+                        placeholder = { Text("e.g. ICT 11 - A") },
+                        singleLine = true,
+                        enabled = !busy,
+                        shape = RoundedCornerShape(16.dp),
+                        colors = modernTextFieldColors(),
+                    )
+                    OutlinedTextField(
+                        value = track,
+                        onValueChange = { track = it.take(30) },
+                        modifier = Modifier.fillMaxWidth(),
+                        label = { Text("Track") },
+                        placeholder = { Text("e.g. ICT") },
+                        singleLine = true,
+                        enabled = !busy,
+                        shape = RoundedCornerShape(16.dp),
+                        colors = modernTextFieldColors(),
+                    )
+                    Text(
+                        text = "The class code stays the same, so enrolled students are not affected.",
+                        color = Color(0xFF64748B),
+                        fontSize = 12.sp,
+                        fontWeight = FontWeight.SemiBold,
+                        lineHeight = 13.sp,
+                    )
+                    HorizontalDivider(
+                        modifier = Modifier.padding(top = 8.dp),
+                        thickness = 1.dp,
+                        color = Color(0xFFE2E8F0),
+                    )
+                    Text(
+                        text = "DANGER ZONE",
+                        color = Color(0xFFBE123C),
+                        fontWeight = FontWeight.Bold,
+                        fontSize = 11.sp,
+                        letterSpacing = 1.sp,
+                    )
+                    OutlinedButton(
+                        onClick = { confirmingDelete = true },
+                        enabled = !busy,
+                        modifier = Modifier.fillMaxWidth(),
+                        shape = RoundedCornerShape(14.dp),
+                        border = BorderStroke(1.dp, Color(0xFFFECDD3)),
+                        colors = ButtonDefaults.outlinedButtonColors(contentColor = Color(0xFFBE123C)),
+                    ) {
+                        Icon(Icons.Filled.Delete, contentDescription = null, modifier = Modifier.size(18.dp))
+                        Spacer(Modifier.width(8.dp))
+                        Text("Delete subject", fontWeight = FontWeight.Bold)
+                    }
+                }
+            }
+        },
+        confirmButton = {
+            if (confirmingDelete) {
+                DialogPrimaryButton(
+                    text = when {
+                        isDeleting -> "Deleting..."
+                        remainingSeconds > 0 -> "Delete in ${remainingSeconds}s"
+                        else -> "Delete subject"
+                    },
+                    onClick = onDelete,
+                    enabled = remainingSeconds == 0 && !busy,
+                    color = if (remainingSeconds == 0 && !busy) Color(0xFFBE123C) else Color(0xFF94A3B8),
+                )
+            } else {
+                DialogPrimaryButton(
+                    text = if (isSaving) "Saving..." else "Save changes",
+                    onClick = {
+                        onSave(className.trim(), subjectCode.trim().uppercase(), section.trim(), track.trim())
+                    },
+                    enabled = canSave && !busy,
+                )
+            }
+        },
+        dismissButton = {
+            DialogCancelButton(
+                onClick = {
+                    if (confirmingDelete) confirmingDelete = false else onDismiss()
+                },
+                enabled = !busy,
+                text = if (confirmingDelete) "Back" else "Cancel",
+            )
+        },
+    )
 }
 
 @Composable
@@ -2994,59 +3194,80 @@ internal fun ProfessorClassroomHero(
     isCreatingAssignment: Boolean,
     onBack: () -> Unit,
     onUpload: () -> Unit,
+    onEdit: () -> Unit,
 ) {
     val accent = themeAccentColor(classItem.themeColor)
     val yearLabel = profileYearLabel(classItem.yearLevel) ?: "Unassigned year"
     val createdLabel = displayClassDate(classItem.createdAt).ifBlank { "Unknown date" }
 
-    Card(
+    Column(
         modifier = Modifier.fillMaxWidth(),
-        colors = CardDefaults.cardColors(containerColor = Color.White.copy(alpha = 0.98f)),
-        border = BorderStroke(1.dp, Color(0xFFE2E8F0).copy(alpha = 0.88f)),
-        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp, pressedElevation = 0.dp),
-        shape = RoundedCornerShape(20.dp),
+        verticalArrangement = Arrangement.spacedBy(12.dp),
     ) {
-        Box(
-            modifier = Modifier
-                .fillMaxWidth()
-                .background(
-                    Brush.linearGradient(
-                        colors = listOf(
-                            Color.White,
-                            accent.copy(alpha = 0.08f),
-                            Color(0xFFF8FAFC),
-                        ),
-                        start = Offset(0f, 0f),
-                        end = Offset(720f, 440f),
-                    ),
-                ),
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically,
         ) {
-            Column(
-                modifier = Modifier.padding(16.dp),
-                verticalArrangement = Arrangement.spacedBy(14.dp),
+            IconButton(
+                onClick = onBack,
+                modifier = Modifier
+                    .size(42.dp)
+                    .clip(RoundedCornerShape(14.dp))
+                    .background(Color.White)
+                    .border(1.dp, Color(0xFFE2E8F0), RoundedCornerShape(14.dp)),
             ) {
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(12.dp),
-                    verticalAlignment = Alignment.Top,
+                Icon(
+                    imageVector = Icons.AutoMirrored.Filled.ArrowBack,
+                    contentDescription = "Back",
+                    tint = Color(0xFF0F172A),
+                    modifier = Modifier.size(20.dp),
+                )
+            }
+            IconButton(
+                onClick = onEdit,
+                modifier = Modifier
+                    .size(42.dp)
+                    .clip(RoundedCornerShape(14.dp))
+                    .background(Color.White)
+                    .border(1.dp, Color(0xFFE2E8F0), RoundedCornerShape(14.dp)),
+            ) {
+                Icon(
+                    imageVector = Icons.Filled.Edit,
+                    contentDescription = "Edit subject",
+                    tint = accent,
+                    modifier = Modifier.size(20.dp),
+                )
+            }
+        }
+        Card(
+            modifier = Modifier.fillMaxWidth(),
+            colors = CardDefaults.cardColors(containerColor = Color.White.copy(alpha = 0.98f)),
+            border = BorderStroke(1.dp, Color(0xFFE2E8F0).copy(alpha = 0.88f)),
+            elevation = CardDefaults.cardElevation(defaultElevation = 2.dp, pressedElevation = 0.dp),
+            shape = RoundedCornerShape(20.dp),
+        ) {
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .background(
+                        Brush.linearGradient(
+                            colors = listOf(
+                                Color.White,
+                                accent.copy(alpha = 0.08f),
+                                Color(0xFFF8FAFC),
+                            ),
+                            start = Offset(0f, 0f),
+                            end = Offset(720f, 440f),
+                        ),
+                    ),
+            ) {
+                Column(
+                    modifier = Modifier.padding(16.dp),
+                    verticalArrangement = Arrangement.spacedBy(14.dp),
                 ) {
-                    IconButton(
-                        onClick = onBack,
-                        modifier = Modifier
-                            .size(42.dp)
-                            .clip(RoundedCornerShape(14.dp))
-                            .background(Color.White)
-                            .border(1.dp, Color(0xFFE2E8F0), RoundedCornerShape(14.dp)),
-                    ) {
-                        Icon(
-                            imageVector = Icons.AutoMirrored.Filled.ArrowBack,
-                            contentDescription = "Back",
-                            tint = Color(0xFF0F172A),
-                            modifier = Modifier.size(20.dp),
-                        )
-                    }
                     Column(
-                        modifier = Modifier.weight(1f),
+                        modifier = Modifier.fillMaxWidth(),
                         verticalArrangement = Arrangement.spacedBy(5.dp),
                     ) {
                         Text(
@@ -3102,53 +3323,53 @@ internal fun ProfessorClassroomHero(
                             overflow = TextOverflow.Ellipsis,
                         )
                     }
-                }
 
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(8.dp),
-                ) {
-                    ProfessorClassroomMetric(
-                        label = "Students",
-                        value = classItem.studentCount.coerceAtLeast(0).toString(),
-                        accent = PanthraaBlue,
-                        modifier = Modifier.weight(1f),
-                    )
-                    ProfessorClassroomMetric(
-                        label = "Uploads",
-                        value = uploadCount.toString(),
-                        accent = Color(0xFF0F766E),
-                        modifier = Modifier.weight(1f),
-                    )
-                    ProfessorClassroomMetric(
-                        label = "Join code",
-                        value = classItem.displayJoinCode,
-                        accent = accent,
-                        isCode = true,
-                        modifier = Modifier.weight(1f),
-                    )
-                }
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    ) {
+                        ProfessorClassroomMetric(
+                            label = "Students",
+                            value = classItem.studentCount.coerceAtLeast(0).toString(),
+                            accent = PanthraaBlue,
+                            modifier = Modifier.weight(1f),
+                        )
+                        ProfessorClassroomMetric(
+                            label = "Uploads",
+                            value = uploadCount.toString(),
+                            accent = Color(0xFF0F766E),
+                            modifier = Modifier.weight(1f),
+                        )
+                        ProfessorClassroomMetric(
+                            label = "Join code",
+                            value = classItem.displayJoinCode,
+                            accent = accent,
+                            isCode = true,
+                            modifier = Modifier.weight(1f),
+                        )
+                    }
 
-                Button(
-                    onClick = onUpload,
-                    enabled = !internetRequired && !isCreatingAssignment,
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .height(48.dp),
-                    shape = RoundedCornerShape(15.dp),
-                    colors = ButtonDefaults.buttonColors(
-                        containerColor = PanthraaBlue,
-                        contentColor = Color.White,
-                        disabledContainerColor = Color(0xFFCBD5E1),
-                        disabledContentColor = Color.White,
-                    ),
-                ) {
-                    Icon(Icons.Filled.Add, contentDescription = null, modifier = Modifier.size(18.dp))
-                    Text(
-                        text = if (isCreatingAssignment) "Uploading..." else "Upload work",
-                        modifier = Modifier.padding(start = 8.dp),
-                        fontWeight = FontWeight.ExtraBold,
-                    )
+                    Button(
+                        onClick = onUpload,
+                        enabled = !internetRequired && !isCreatingAssignment,
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(48.dp),
+                        shape = RoundedCornerShape(15.dp),
+                        colors = ButtonDefaults.buttonColors(
+                            containerColor = PanthraaBlue,
+                            contentColor = Color.White,
+                            disabledContainerColor = Color(0xFFCBD5E1),
+                            disabledContentColor = Color.White,
+                        ),
+                    ) {
+                        Icon(Icons.Filled.Add, contentDescription = null, modifier = Modifier.size(18.dp))
+                        Text(
+                            text = if (isCreatingAssignment) "Uploading..." else "Upload work",
+                            modifier = Modifier.padding(start = 8.dp),
+                            fontWeight = FontWeight.ExtraBold,
+                        )
+                    }
                 }
             }
         }
@@ -3314,37 +3535,25 @@ internal fun AttendanceScreen(
     isLoading: Boolean,
     isRecording: Boolean,
     internetRequired: Boolean,
-    canScan: Boolean = true,
-    studentQrUser: AppUser? = null,
+    canMarkAttendance: Boolean = true,
+    viewerUser: AppUser? = null,
     onLoadAttendance: (String) -> Unit,
     isRefreshing: Boolean,
     onRefreshAttendance: (String) -> Unit,
     onRecordAttendance: (String, String) -> Unit,
     onBack: () -> Unit,
 ) {
-    val context = LocalContext.current
     var localError by remember { mutableStateOf<String?>(null) }
-    val scanOptions = remember {
-        ScanOptions()
-            .setDesiredBarcodeFormats(ScanOptions.QR_CODE)
-            .setPrompt("Scan student QR")
-            .setBeepEnabled(true)
-            .setOrientationLocked(false)
-    }
-    val scannerLauncher = rememberLauncherForActivityResult(ScanContract()) { result ->
-        val value = result.contents?.trim().orEmpty()
-        if (value.isBlank()) {
-            localError = "No QR code scanned."
+    var searchQuery by remember { mutableStateOf("") }
+    val filteredStudents = remember(students, searchQuery) {
+        val query = searchQuery.trim().lowercase(Locale.getDefault())
+        if (query.isEmpty()) {
+            students
         } else {
-            localError = null
-            onRecordAttendance(assignment.id, value)
-        }
-    }
-    val permissionLauncher = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { granted ->
-        if (granted) {
-            scannerLauncher.launch(scanOptions)
-        } else {
-            localError = "Camera permission is required."
+            students.filter { student ->
+                student.name.lowercase(Locale.getDefault()).contains(query) ||
+                    student.idNumber.lowercase(Locale.getDefault()).contains(query)
+            }
         }
     }
 
@@ -3418,31 +3627,29 @@ internal fun AttendanceScreen(
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis,
                     )
-                    if (canScan) {
-                        Button(
-                            onClick = {
-                                if (internetRequired) return@Button
-                                if (ContextCompat.checkSelfPermission(context, Manifest.permission.CAMERA) == PackageManager.PERMISSION_GRANTED) {
-                                    scannerLauncher.launch(scanOptions)
-                                } else {
-                                    permissionLauncher.launch(Manifest.permission.CAMERA)
-                                }
+                    if (canMarkAttendance) {
+                        OutlinedTextField(
+                            value = searchQuery,
+                            onValueChange = { searchQuery = it },
+                            modifier = Modifier.fillMaxWidth(),
+                            placeholder = { Text("Call a name or search by ID number") },
+                            leadingIcon = {
+                                Icon(Icons.Filled.Search, contentDescription = null, tint = Color(0xFF64748B))
                             },
-                            enabled = !internetRequired && !isRecording,
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .height(50.dp),
-                            shape = RoundedCornerShape(16.dp),
-                            colors = ButtonDefaults.buttonColors(containerColor = PanthraaBlue),
-                        ) {
-                            Icon(Icons.Filled.PhotoCamera, contentDescription = null)
-                            Text(
-                                text = if (isRecording) "Recording..." else "Scan Student QR",
-                                modifier = Modifier.padding(start = 8.dp),
-                                color = Color.White,
-                                fontWeight = FontWeight.Bold,
-                            )
-                        }
+                            singleLine = true,
+                            shape = RoundedCornerShape(14.dp),
+                            colors = OutlinedTextFieldDefaults.colors(
+                                focusedBorderColor = PanthraaBlue,
+                                unfocusedBorderColor = Color(0xFFCBD5E1),
+                            ),
+                        )
+                        Text(
+                            text = "Call the student's name, find them in the list, then tap Mark present.",
+                            color = Color(0xFF64748B),
+                            fontWeight = FontWeight.SemiBold,
+                            fontSize = 11.sp,
+                            lineHeight = 13.sp,
+                        )
                     } else {
                         Text(
                             text = "Read-only attendance monitoring for this activity.",
@@ -3451,8 +3658,8 @@ internal fun AttendanceScreen(
                             fontSize = 12.sp,
                         )
                     }
-                    if (!canScan && studentQrUser != null) {
-                        val studentAttendance = students.firstOrNull { it.studentId == studentQrUser.id || it.idNumber == studentQrUser.idNumber }
+                    if (!canMarkAttendance && viewerUser != null) {
+                        val studentAttendance = students.firstOrNull { it.studentId == viewerUser.id || it.idNumber == viewerUser.idNumber }
                         val status = studentAttendance?.status ?: ""
                         val expired = isAssignmentExpired(assignment)
                         if (status.equals("present", ignoreCase = true)) {
@@ -3468,7 +3675,31 @@ internal fun AttendanceScreen(
                                 date = null
                             )
                         } else {
-                            StudentAttendanceQrPanel(user = studentQrUser)
+                            Card(
+                                modifier = Modifier.fillMaxWidth(),
+                                colors = CardDefaults.cardColors(containerColor = Color(0xFFF8FAFC)),
+                                border = BorderStroke(1.dp, Color(0xFFE2E8F0)),
+                                shape = RoundedCornerShape(16.dp),
+                            ) {
+                                Column(
+                                    modifier = Modifier.padding(14.dp),
+                                    verticalArrangement = Arrangement.spacedBy(4.dp),
+                                ) {
+                                    Text(
+                                        text = "Not marked yet",
+                                        color = Color(0xFF0F172A),
+                                        fontWeight = FontWeight.ExtraBold,
+                                        fontSize = 14.sp,
+                                    )
+                                    Text(
+                                        text = "Your professor records attendance by calling names in class. If you attended but are still unmarked, tell your professor your name or ID number (${viewerUser.idNumber.ifBlank { "no ID on file" }}).",
+                                        color = Color(0xFF64748B),
+                                        fontWeight = FontWeight.SemiBold,
+                                        fontSize = 11.sp,
+                                        lineHeight = 13.sp,
+                                    )
+                                }
+                            }
                         }
                     }
                     if (internetRequired) {
@@ -3494,66 +3725,19 @@ internal fun AttendanceScreen(
             }
         } else if (students.isEmpty()) {
             item { EmptyClassState(loadError ?: "No enrolled students yet.") }
+        } else if (filteredStudents.isEmpty()) {
+            item { EmptyClassState("No student matches \"$searchQuery\".") }
         } else {
-            items(students, key = { it.studentId }) { student ->
-                AttendanceStudentCard(student = student)
+            items(filteredStudents, key = { it.studentId }) { student ->
+                AttendanceStudentCard(
+                    student = student,
+                    canMarkPresent = canMarkAttendance,
+                    isRecording = isRecording,
+                    onMarkPresent = { onRecordAttendance(assignment.id, student.idNumber) },
+                )
             }
         }
     }
-}
-}
-
-@Composable
-internal fun StudentAttendanceQrPanel(user: AppUser) {
-    Box(
-        modifier = Modifier
-            .fillMaxWidth()
-            .clip(RoundedCornerShape(18.dp))
-            .background(Color(0xFFF8FAFC))
-            .border(1.dp, Color(0xFFE2E8F0), RoundedCornerShape(18.dp))
-            .padding(14.dp),
-    ) {
-        Column(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalAlignment = Alignment.CenterHorizontally,
-            verticalArrangement = Arrangement.spacedBy(10.dp),
-        ) {
-            Text(
-                text = "Your attendance QR",
-                color = Color(0xFF0F172A),
-                fontWeight = FontWeight.ExtraBold,
-                fontSize = 15.sp,
-            )
-            Text(
-                text = user.idNumber.ifBlank { "No ID number" },
-                color = Color(0xFF64748B),
-                fontWeight = FontWeight.SemiBold,
-                fontSize = 12.sp,
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis,
-            )
-            Box(
-                modifier = Modifier
-                    .clip(RoundedCornerShape(16.dp))
-                    .background(Color.White)
-                    .border(1.dp, Color(0xFFE2E8F0), RoundedCornerShape(16.dp))
-                    .padding(12.dp),
-                contentAlignment = Alignment.Center,
-            ) {
-                StudentQrCard(
-                    idNumber = user.idNumber,
-                    modifier = Modifier.size(176.dp),
-                )
-            }
-            Text(
-                text = "Show this code when your professor scans attendance.",
-                color = Color(0xFF64748B),
-                fontWeight = FontWeight.SemiBold,
-                fontSize = 11.sp,
-                lineHeight = 12.sp,
-                textAlign = TextAlign.Center,
-            )
-        }
     }
 }
 
@@ -3648,14 +3832,22 @@ internal fun StudentAttendanceStatusCard(
 }
 
 @Composable
-internal fun AttendanceStudentCard(student: AttendanceStudent) {
+internal fun AttendanceStudentCard(
+    student: AttendanceStudent,
+    canMarkPresent: Boolean = false,
+    isRecording: Boolean = false,
+    onMarkPresent: (() -> Unit)? = null,
+) {
     val present = student.status.equals("present", ignoreCase = true)
-    val cardColor = if (present) Color(0xFFE8F8EC) else Color(0xFFFFECEC)
+    val canMark = canMarkPresent && !present && onMarkPresent != null && student.idNumber.isNotBlank()
+    val cardColor = if (present) Color(0xFFE8F8EC) else if (canMark) Color.White else Color(0xFFFFECEC)
     val badgeColor = if (present) Color(0xFF047857) else Color(0xFFBE123C)
     Card(
-        modifier = Modifier.fillMaxWidth(),
+        modifier = Modifier
+            .fillMaxWidth()
+            .then(if (canMark && !isRecording) Modifier.clickable(onClick = onMarkPresent!!) else Modifier),
         colors = CardDefaults.cardColors(containerColor = cardColor),
-        border = BorderStroke(1.dp, badgeColor.copy(alpha = 0.28f)),
+        border = BorderStroke(1.dp, badgeColor.copy(alpha = if (canMark) 0.18f else 0.28f)),
         shape = RoundedCornerShape(16.dp),
     ) {
         Row(
@@ -3691,18 +3883,38 @@ internal fun AttendanceStudentCard(student: AttendanceStudent) {
                     fontSize = 12.sp,
                 )
             }
-            Box(
-                modifier = Modifier
-                    .clip(RoundedCornerShape(999.dp))
-                    .background(badgeColor)
-                    .padding(horizontal = 10.dp, vertical = 6.dp),
-            ) {
-                Text(
-                    text = if (present) "Present" else "Absent",
-                    color = Color.White,
-                    fontWeight = FontWeight.Bold,
-                    fontSize = 11.sp,
-                )
+            if (present) {
+                Box(
+                    modifier = Modifier
+                        .clip(RoundedCornerShape(999.dp))
+                        .background(badgeColor)
+                        .padding(horizontal = 10.dp, vertical = 6.dp),
+                ) {
+                    Text(
+                        text = "Present",
+                        color = Color.White,
+                        fontWeight = FontWeight.Bold,
+                        fontSize = 11.sp,
+                    )
+                }
+            } else {
+                Box(
+                    modifier = Modifier
+                        .clip(RoundedCornerShape(999.dp))
+                        .background(if (canMark) PanthraaBlue else badgeColor)
+                        .padding(horizontal = 10.dp, vertical = 6.dp),
+                ) {
+                    Text(
+                        text = when {
+                            isRecording -> "Marking..."
+                            canMark -> "Mark present"
+                            else -> "Absent"
+                        },
+                        color = Color.White,
+                        fontWeight = FontWeight.Bold,
+                        fontSize = 11.sp,
+                    )
+                }
             }
         }
     }
@@ -4306,10 +4518,20 @@ internal fun StudentAssignmentCard(
 internal fun StudentAssignmentDetailPage(
     assignment: ClassAssignment,
     classItem: StudentClass? = null,
+    innerPadding: PaddingValues = PaddingValues(0.dp),
     isSubmitting: Boolean,
     internetRequired: Boolean,
+    comments: List<AssignmentComment> = emptyList(),
+    isLoadingComments: Boolean = false,
+    isPostingComment: Boolean = false,
+    isDeletingComment: Boolean = false,
+    currentUserId: String = "",
     onSubmitAssignment: (String, String, Uri?) -> Unit,
     onRecordMaterialView: (String) -> Unit,
+    onLoadComments: (String) -> Unit = {},
+    onRefreshComments: (String) -> Unit = {},
+    onPostComment: (String, String, String) -> Unit = { _, _, _ -> },
+    onDeleteComment: (String) -> Unit = {},
     onOpenAttendance: () -> Unit,
     onBack: () -> Unit,
 ) {
@@ -4378,12 +4600,23 @@ internal fun StudentAssignmentDetailPage(
         }
     }
 
+    LaunchedEffect(assignment.id, internetRequired) {
+        if (!internetRequired) {
+            onLoadComments(assignment.id)
+        }
+    }
+
     Column(
         modifier = Modifier
             .fillMaxSize()
             .panthraaScreenBackground()
             .verticalScroll(rememberScrollState())
-            .padding(horizontal = 14.dp, vertical = 12.dp),
+            .padding(
+                start = 14.dp,
+                end = 14.dp,
+                top = 12.dp,
+                bottom = innerPadding.calculateBottomPadding() + 12.dp,
+            ),
         verticalArrangement = Arrangement.spacedBy(10.dp),
     ) {
         AssignmentDetailHeader(
@@ -4628,6 +4861,19 @@ internal fun StudentAssignmentDetailPage(
             }
         }
         }
+
+        AssignmentCommentsSection(
+            assignment = assignment,
+            comments = comments,
+            currentUserId = currentUserId,
+            isProfessorView = false,
+            isLoading = isLoadingComments,
+            isPosting = isPostingComment,
+            isDeleting = isDeletingComment,
+            internetRequired = internetRequired,
+            onPostComment = onPostComment,
+            onDeleteComment = onDeleteComment,
+        )
     }
 }
 
@@ -4905,12 +5151,23 @@ internal fun ProfessorAssignmentDetailPage(
     isDeleting: Boolean,
     isUpdating: Boolean,
     internetRequired: Boolean,
+    classItem: ProfessorClass? = null,
+    innerPadding: PaddingValues = PaddingValues(0.dp),
+    comments: List<AssignmentComment> = emptyList(),
+    isLoadingComments: Boolean = false,
+    isPostingComment: Boolean = false,
+    isDeletingComment: Boolean = false,
+    currentUserId: String = "",
     onLoadSubmissions: (String) -> Unit,
     isRefreshingSubmissions: Boolean,
     onRefreshSubmissions: (String) -> Unit,
+    onLoadComments: (String) -> Unit = {},
+    onRefreshComments: (String) -> Unit = {},
+    onPostComment: (String, String, String) -> Unit = { _, _, _ -> },
+    onDeleteComment: (String) -> Unit = {},
     onGradeSubmission: (String, Int, Int) -> Unit,
     onDeleteAssignment: (String) -> Unit,
-    onUpdateAssignment: (String, String, String, String, Int, String?, String?, String?, String?, String, String, Boolean, Uri?) -> Unit,
+    onUpdateAssignment: (String, String, String, String, Int, String?, String?, String?, String?, String, String, Boolean, Boolean, Uri?) -> Unit,
     onOpenAttendance: () -> Unit,
     onBack: () -> Unit,
 ) {
@@ -4934,6 +5191,9 @@ internal fun ProfessorAssignmentDetailPage(
     LaunchedEffect(assignment.id, isMaterial, internetRequired) {
         if (!internetRequired && !isMaterial) {
             onLoadSubmissions(assignment.id)
+        }
+        if (!internetRequired) {
+            onLoadComments(assignment.id)
         }
     }
 
@@ -4959,6 +5219,7 @@ internal fun ProfessorAssignmentDetailPage(
         isRefreshing = isRefreshingSubmissions,
         onRefresh = {
             if (!isMaterial) onRefreshSubmissions(assignment.id)
+            onRefreshComments(assignment.id)
         },
         modifier = Modifier.fillMaxSize(),
         enabled = !isMaterial,
@@ -4966,11 +5227,20 @@ internal fun ProfessorAssignmentDetailPage(
     Column(
         modifier = Modifier
             .fillMaxSize()
-            .panthraaScreenBackground()
-            .verticalScroll(rememberScrollState())
-            .padding(horizontal = 14.dp, vertical = 12.dp),
-        verticalArrangement = Arrangement.spacedBy(10.dp),
+            .panthraaScreenBackground(),
     ) {
+        Column(
+            modifier = Modifier
+                .weight(1f)
+                .verticalScroll(rememberScrollState())
+                .padding(
+                    start = 14.dp,
+                    end = 14.dp,
+                    top = 12.dp,
+                    bottom = innerPadding.calculateBottomPadding() + 12.dp,
+                ),
+            verticalArrangement = Arrangement.spacedBy(10.dp),
+        ) {
         AssignmentDetailHeader(
             title = assignmentTypeTitle(assignment.assignmentType),
             onBack = onBack,
@@ -5094,9 +5364,23 @@ internal fun ProfessorAssignmentDetailPage(
                     }
                 }
             }
-        }
+}
+
+        AssignmentCommentsSection(
+            assignment = assignment,
+            comments = comments,
+            currentUserId = currentUserId,
+            isProfessorView = true,
+            isLoading = isLoadingComments,
+            isPosting = isPostingComment,
+            isDeleting = isDeletingComment,
+            internetRequired = internetRequired,
+            onPostComment = onPostComment,
+            onDeleteComment = onDeleteComment,
+        )
     }
-    }
+}
+}
 
     activeSubmission?.let { submission ->
         AssignmentSubmissionDetailDialog(
@@ -5160,11 +5444,377 @@ internal fun ProfessorAssignmentDetailPage(
         UploadAssignmentDialog(
             isCreating = isUpdating,
             initialAssignment = assignment,
+            scheduleDays = classItem?.scheduleDays.orEmpty(),
+            scheduleStartTime = classItem?.scheduleStartTime,
+            scheduleEndTime = classItem?.scheduleEndTime,
             onDismiss = { if (!isUpdating) showEditDialog = false },
-            onUpload = { title, instructions, category, targetPoints, startDate, endDate, startTime, endTime, assignmentType, submissionFormat, requiresFile, fileUri ->
-                onUpdateAssignment(assignment.id, title, instructions, category, targetPoints, startDate, endDate, startTime, endTime, assignmentType, submissionFormat, requiresFile, fileUri)
+            onUpload = { title, instructions, category, targetPoints, startDate, endDate, startTime, endTime, assignmentType, submissionFormat, requiresFile, allowComments, fileUri ->
+                onUpdateAssignment(assignment.id, title, instructions, category, targetPoints, startDate, endDate, startTime, endTime, assignmentType, submissionFormat, requiresFile, allowComments, fileUri)
                 showEditDialog = false
             },
+        )
+    }
+}
+
+@Composable
+internal fun AssignmentCommentsSection(
+    assignment: ClassAssignment,
+    comments: List<AssignmentComment>,
+    currentUserId: String,
+    isProfessorView: Boolean,
+    isLoading: Boolean,
+    isPosting: Boolean,
+    isDeleting: Boolean,
+    internetRequired: Boolean,
+    onPostComment: (String, String, String) -> Unit,
+    onDeleteComment: (String) -> Unit,
+) {
+    var draft by remember(assignment.id) { mutableStateOf("") }
+    var visibility by remember(assignment.id) { mutableStateOf("public") }
+    val isStudentView = !isProfessorView
+    val commentsEnabled = isProfessorView || assignment.allowComments
+    val canPost = commentsEnabled && !internetRequired && !isPosting && draft.isNotBlank()
+
+    Card(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 14.dp, vertical = 10.dp),
+        colors = CardDefaults.cardColors(containerColor = Color.White),
+        border = BorderStroke(1.dp, Color(0xFFE5E7EB)),
+        shape = RoundedCornerShape(16.dp),
+    ) {
+        Column(
+            modifier = Modifier.padding(14.dp),
+            verticalArrangement = Arrangement.spacedBy(10.dp),
+        ) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Text(
+                    text = "Comments",
+                    color = Color(0xFF0F172A),
+                    fontWeight = FontWeight.ExtraBold,
+                    style = MaterialTheme.typography.titleMedium,
+                )
+                if (comments.isNotEmpty()) {
+                    Box(
+                        modifier = Modifier
+                            .clip(RoundedCornerShape(10.dp))
+                            .background(PanthraaBlue.copy(alpha = 0.10f))
+                            .padding(horizontal = 8.dp, vertical = 3.dp),
+                    ) {
+                        Text(
+                            text = "${comments.size}",
+                            color = PanthraaBlue,
+                            fontWeight = FontWeight.ExtraBold,
+                            fontSize = 11.sp,
+                        )
+                    }
+                }
+            }
+
+            Text(
+                text = if (isStudentView) {
+                    "Public comments are visible to everyone in the class. \"Only professor\" comments are seen just by your professor."
+                } else {
+                    "Public comments are visible to students. Private comments are seen only by you and the author."
+                },
+                color = Color(0xFF64748B),
+                fontWeight = FontWeight.SemiBold,
+                fontSize = 11.sp,
+                lineHeight = 13.sp,
+            )
+
+            when {
+                internetRequired -> PanthraaStatusNotice(
+                    type = NoticeType.OFFLINE,
+                    title = "Internet required",
+                    message = "Connect to view and post comments.",
+                )
+                isLoading && comments.isEmpty() -> Box(
+                    modifier = Modifier.fillMaxWidth(),
+                    contentAlignment = Alignment.Center,
+                ) {
+                    PanthraaLoadingAnimation(size = 72.dp)
+                }
+                comments.isEmpty() -> PanthraaStatusNotice(
+                    type = NoticeType.INFO,
+                    title = if (isStudentView && !assignment.allowComments) {
+                        "Comments are off"
+                    } else {
+                        "No comments yet"
+                    },
+                    message = if (isStudentView && !assignment.allowComments) {
+                        "The professor has turned off comments for this upload."
+                    } else {
+                        "Start the discussion below."
+                    },
+                )
+                else -> {
+                    if (isStudentView && !assignment.allowComments) {
+                        PanthraaStatusNotice(
+                            type = NoticeType.INFO,
+                            title = "Comments are off",
+                            message = "The professor has turned off new comments, but previous ones stay visible.",
+                        )
+                    }
+                    comments.forEach { comment ->
+                        AssignmentCommentRow(
+                            comment = comment,
+                            currentUserId = currentUserId,
+                            isProfessorView = isProfessorView,
+                            isDeleting = isDeleting,
+                            internetRequired = internetRequired,
+                            onDelete = { onDeleteComment(comment.id) },
+                        )
+                    }
+                }
+            }
+
+            if (commentsEnabled && !internetRequired) {
+                OutlinedTextField(
+                    value = draft,
+                    onValueChange = { draft = it },
+                    modifier = Modifier.fillMaxWidth(),
+                    label = { Text("Add a comment") },
+                    placeholder = {
+                        Text(
+                            if (isProfessorView) {
+                                "Share a note with the class."
+                            } else {
+                                "Ask a question or share a note."
+                            }
+                        )
+                    },
+                    minLines = 2,
+                    maxLines = 5,
+                    enabled = !isPosting,
+                    shape = RoundedCornerShape(16.dp),
+                    colors = OutlinedTextFieldDefaults.colors(
+                        focusedBorderColor = PanthraaBlue,
+                        focusedLabelColor = PanthraaBlue,
+                        cursorColor = PanthraaBlue,
+                        focusedTextColor = Color.Black,
+                        unfocusedTextColor = Color.Black,
+                    ),
+                )
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    if (isStudentView) {
+                        CommentVisibilityChip(
+                            label = "Public",
+                            selected = visibility == "public",
+                            enabled = !isPosting,
+                            onSelect = { visibility = "public" },
+                        )
+                        CommentVisibilityChip(
+                            label = "Only professor",
+                            selected = visibility == "private",
+                            enabled = !isPosting,
+                            showLock = true,
+                            onSelect = { visibility = "private" },
+                        )
+                    }
+                    Spacer(modifier = Modifier.weight(1f))
+                    Button(
+                        onClick = {
+                            val content = draft.trim()
+                            if (content.isNotEmpty()) {
+                                onPostComment(assignment.id, content, if (isProfessorView) "public" else visibility)
+                                draft = ""
+                            }
+                        },
+                        enabled = canPost,
+                        modifier = Modifier.height(42.dp),
+                        shape = RoundedCornerShape(14.dp),
+                        colors = ButtonDefaults.buttonColors(
+                            containerColor = PanthraaBlue,
+                            disabledContainerColor = Color(0xFFCBD5E1),
+                        ),
+                    ) {
+                        if (isPosting) {
+                            CircularProgressIndicator(
+                                modifier = Modifier.size(16.dp),
+                                color = Color.White,
+                                strokeWidth = 2.dp,
+                            )
+                            Spacer(modifier = Modifier.width(6.dp))
+                        } else {
+                            Icon(
+                                imageVector = Icons.Filled.Send,
+                                contentDescription = null,
+                                tint = Color.White,
+                                modifier = Modifier.size(16.dp),
+                            )
+                            Spacer(modifier = Modifier.width(6.dp))
+                        }
+                        Text(
+                            text = if (isPosting) "Posting..." else "Post",
+                            color = Color.White,
+                            fontWeight = FontWeight.Bold,
+                        )
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun AssignmentCommentRow(
+    comment: AssignmentComment,
+    currentUserId: String,
+    isProfessorView: Boolean,
+    isDeleting: Boolean,
+    internetRequired: Boolean,
+    onDelete: () -> Unit,
+) {
+    val canDelete = comment.id.isNotBlank() && (comment.authorId == currentUserId || isProfessorView)
+    Row(
+        modifier = Modifier.fillMaxWidth(),
+        horizontalArrangement = Arrangement.spacedBy(10.dp),
+        verticalAlignment = Alignment.Top,
+    ) {
+        Avatar(
+            imageUrl = comment.authorPhotoUrl,
+            name = comment.authorName,
+            modifier = Modifier.size(36.dp),
+            initialFontSize = 14.sp,
+        )
+        Column(
+            modifier = Modifier.weight(1f),
+            verticalArrangement = Arrangement.spacedBy(3.dp),
+        ) {
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(6.dp),
+            ) {
+                Text(
+                    text = comment.authorName.ifBlank { "Unknown" },
+                    color = Color(0xFF0F172A),
+                    fontWeight = FontWeight.ExtraBold,
+                    fontSize = 13.sp,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                )
+                if (comment.authorRole.equals("professor", ignoreCase = true)) {
+                    CommentTag(
+                        text = "Professor",
+                        background = Color(0xFFEAF0FF),
+                        content = PanthraaBlue,
+                    )
+                }
+                if (comment.isPrivate) {
+                    CommentTag(
+                        text = "Private",
+                        background = Color(0xFFFEF3C7),
+                        content = Color(0xFF92400E),
+                        showLock = true,
+                    )
+                }
+            }
+            Text(
+                text = displayAssignmentCreatedAt(comment.createdAt),
+                color = Color(0xFF94A3B8),
+                fontWeight = FontWeight.SemiBold,
+                fontSize = 11.sp,
+            )
+            Text(
+                text = comment.content,
+                color = Color(0xFF334155),
+                fontSize = 13.sp,
+                lineHeight = 17.sp,
+            )
+        }
+        if (canDelete) {
+            IconButton(
+                onClick = onDelete,
+                enabled = !isDeleting && !internetRequired,
+                modifier = Modifier.size(32.dp),
+            ) {
+                Icon(
+                    imageVector = Icons.Filled.Delete,
+                    contentDescription = "Delete comment",
+                    tint = Color(0xFFBE123C),
+                    modifier = Modifier.size(17.dp),
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun CommentTag(
+    text: String,
+    background: Color,
+    content: Color,
+    showLock: Boolean = false,
+) {
+    Row(
+        modifier = Modifier
+            .clip(RoundedCornerShape(6.dp))
+            .background(background)
+            .padding(horizontal = 5.dp, vertical = 2.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(3.dp),
+    ) {
+        if (showLock) {
+            Icon(
+                imageVector = Icons.Filled.Lock,
+                contentDescription = null,
+                tint = content,
+                modifier = Modifier.size(10.dp),
+            )
+        }
+        Text(
+            text = text,
+            color = content,
+            fontSize = 9.sp,
+            fontWeight = FontWeight.ExtraBold,
+            maxLines = 1,
+        )
+    }
+}
+
+@Composable
+private fun CommentVisibilityChip(
+    label: String,
+    selected: Boolean,
+    enabled: Boolean,
+    showLock: Boolean = false,
+    onSelect: () -> Unit,
+) {
+    val background = if (selected) PanthraaBlue.copy(alpha = 0.12f) else Color(0xFFF1F5F9)
+    val border = if (selected) PanthraaBlue.copy(alpha = 0.50f) else Color(0xFFE2E8F0)
+    val content = if (selected) PanthraaBlue else Color(0xFF64748B)
+    Row(
+        modifier = Modifier
+            .clip(RoundedCornerShape(10.dp))
+            .background(background)
+            .border(1.dp, border, RoundedCornerShape(10.dp))
+            .clickable(enabled = enabled, onClick = onSelect)
+            .padding(horizontal = 10.dp, vertical = 7.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(5.dp),
+    ) {
+        if (showLock) {
+            Icon(
+                imageVector = Icons.Filled.Lock,
+                contentDescription = null,
+                tint = content,
+                modifier = Modifier.size(12.dp),
+            )
+        }
+        Text(
+            text = label,
+            color = content,
+            fontWeight = FontWeight.Bold,
+            fontSize = 11.sp,
         )
     }
 }
@@ -6012,13 +6662,44 @@ internal fun ScoredWorkInstructionCard(assignment: ClassAssignment) {
     }
 }
 
+internal fun nextClassSessionDate(
+    today: LocalDate,
+    scheduleDays: List<String>,
+): LocalDate? {
+    val dayValues = scheduleDays.mapNotNull { day ->
+        when (day.lowercase(Locale.getDefault())) {
+            "monday" -> DayOfWeek.MONDAY
+            "tuesday" -> DayOfWeek.TUESDAY
+            "wednesday" -> DayOfWeek.WEDNESDAY
+            "thursday" -> DayOfWeek.THURSDAY
+            "friday" -> DayOfWeek.FRIDAY
+            "saturday" -> DayOfWeek.SATURDAY
+            "sunday" -> DayOfWeek.SUNDAY
+            else -> null
+        }
+    }.distinct()
+    if (dayValues.isEmpty()) return null
+    val todayValue = today.dayOfWeek
+    val next = dayValues.minBy { (it.value - todayValue.value + 7) % 7 }
+    return today.plusDays(((next.value - todayValue.value + 7) % 7).toLong())
+}
+
+internal fun normalizeTimeToSeconds(raw: String?): String? {
+    return runCatching {
+        LocalTime.parse(raw).let { String.format("%02d:%02d:00", it.hour, it.minute) }
+    }.getOrNull()
+}
+
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 internal fun UploadAssignmentDialog(
     isCreating: Boolean,
     initialAssignment: ClassAssignment? = null,
+    scheduleDays: List<String> = emptyList(),
+    scheduleStartTime: String? = null,
+    scheduleEndTime: String? = null,
     onDismiss: () -> Unit,
-    onUpload: (String, String, String, Int, String?, String?, String?, String?, String, String, Boolean, Uri?) -> Unit,
+    onUpload: (String, String, String, Int, String?, String?, String?, String?, String, String, Boolean, Boolean, Uri?) -> Unit,
 ) {
     val isEditMode = initialAssignment != null
     var title by remember(initialAssignment?.id) { mutableStateOf(initialAssignment?.title.orEmpty()) }
@@ -6038,6 +6719,7 @@ internal fun UploadAssignmentDialog(
         mutableStateOf(normalizedSubmissionFormat(initialAssignment?.submissionFormat))
     }
     var requiresFile by remember(initialAssignment?.id) { mutableStateOf(initialAssignment?.requiresFile ?: true) }
+    var allowComments by remember(initialAssignment?.id) { mutableStateOf(initialAssignment?.allowComments ?: true) }
     var targetPointsDraft by remember(initialAssignment?.id) { mutableStateOf((initialAssignment?.targetPoints ?: 100).toString()) }
     val targetPoints = targetPointsDraft.toIntOrNull()
     val targetPointsValid = targetPoints != null && targetPoints > 0
@@ -6096,7 +6778,8 @@ internal fun UploadAssignmentDialog(
                         startDate = java.time.Instant.ofEpochMilli(millis).atZone(PhilippineZoneId).toLocalDate().toString()
                     }
                     showStartDatePicker = false
-                }) { Text("OK") }
+                    showStartTimePicker = true
+                }) { Text("Next") }
             },
             dismissButton = {
                 TextButton(onClick = { showStartDatePicker = false }) { Text("Cancel") }
@@ -6120,7 +6803,8 @@ internal fun UploadAssignmentDialog(
                         endDate = java.time.Instant.ofEpochMilli(millis).atZone(PhilippineZoneId).toLocalDate().toString()
                     }
                     showEndDatePicker = false
-                }) { Text("OK") }
+                    showEndTimePicker = true
+                }) { Text("Next") }
             },
             dismissButton = {
                 TextButton(onClick = { showEndDatePicker = false }) { Text("Cancel") }
@@ -6142,13 +6826,14 @@ internal fun UploadAssignmentDialog(
             onDismissRequest = { showStartTimePicker = false },
             shape = RoundedCornerShape(24.dp),
             containerColor = DialogSurface,
-            title = { DialogHeader(title = "Start time", subtitle = "Set the opening time for attendance.", icon = Icons.Filled.Event) },
+            title = { DialogHeader(title = "Start time", subtitle = "Set when this activity opens.", icon = Icons.Filled.Event) },
             text = { TimePicker(state = state) },
             confirmButton = {
                 TextButton(onClick = {
                     startTime = String.format("%02d:%02d:00", state.hour, state.minute)
                     showStartTimePicker = false
-                }) { Text("OK") }
+                    showEndDatePicker = true
+                }) { Text("Next") }
             },
             dismissButton = {
                 TextButton(onClick = { showStartTimePicker = false }) { Text("Cancel") }
@@ -6168,13 +6853,13 @@ internal fun UploadAssignmentDialog(
             onDismissRequest = { showEndTimePicker = false },
             shape = RoundedCornerShape(24.dp),
             containerColor = DialogSurface,
-            title = { DialogHeader(title = "End time", subtitle = "Set the closing time for attendance.", icon = Icons.Filled.Event) },
+            title = { DialogHeader(title = "End time", subtitle = "Set the deadline for this activity.", icon = Icons.Filled.Event) },
             text = { TimePicker(state = state) },
             confirmButton = {
                 TextButton(onClick = {
                     endTime = String.format("%02d:%02d:00", state.hour, state.minute)
                     showEndTimePicker = false
-                }) { Text("OK") }
+                }) { Text("Done") }
             },
             dismissButton = {
                 TextButton(onClick = { showEndTimePicker = false }) { Text("Cancel") }
@@ -6412,6 +7097,42 @@ internal fun UploadAssignmentDialog(
                         )
                     }
 
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        Column(modifier = Modifier.weight(1f)) {
+                            Text(
+                                text = "Allow student comments",
+                                color = Color(0xFF334155),
+                                fontWeight = FontWeight.Bold,
+                                fontSize = 13.sp,
+                            )
+                            Text(
+                                text = if (isMaterial) {
+                                    "Students can discuss this material at the bottom."
+                                } else {
+                                    "Students can ask questions under this activity."
+                                },
+                                color = Color(0xFF64748B),
+                                fontSize = 11.sp,
+                                lineHeight = 12.sp,
+                            )
+                        }
+                        Switch(
+                            checked = allowComments,
+                            onCheckedChange = { allowComments = it },
+                            enabled = !isCreating,
+                            colors = SwitchDefaults.colors(
+                                checkedThumbColor = Color.White,
+                                checkedTrackColor = Color(0xFF0034DE),
+                                uncheckedThumbColor = Color.White,
+                                uncheckedTrackColor = Color(0xFFCBD5E1),
+                            ),
+                        )
+                    }
+
                     Text(
                         text = "Time window (optional)",
                         color = Color(0xFF334155),
@@ -6419,80 +7140,152 @@ internal fun UploadAssignmentDialog(
                         fontSize = 13.sp,
                     )
 
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.spacedBy(8.dp),
-                    ) {
-                        Button(
-                            onClick = { showStartDatePicker = true },
-                            enabled = !isCreating,
-                            modifier = Modifier.weight(1f),
-                            shape = RoundedCornerShape(14.dp),
-                            colors = ButtonDefaults.buttonColors(
-                                containerColor = if (startDate != null) PanthraaBlue else Color(0xFFF1F5F9),
-                                contentColor = if (startDate != null) Color.White else Color(0xFF334155),
-                            ),
+                    val currentDate = LocalDate.now(PhilippineZoneId)
+                    val hasSchedule = scheduleDays.isNotEmpty() &&
+                        scheduleStartTime != null && scheduleEndTime != null
+                    val sessionStartTime = normalizeTimeToSeconds(scheduleStartTime) ?: "08:00:00"
+                    val sessionEndTime = normalizeTimeToSeconds(scheduleEndTime) ?: "23:59:00"
+                    val sessionDate = remember(scheduleDays) { nextClassSessionDate(currentDate, scheduleDays) }
+                    val sessionActive = sessionDate != null &&
+                        startDate == sessionDate.toString() &&
+                        startTime == sessionStartTime &&
+                        endTime == sessionEndTime
+                    if (hasSchedule && sessionDate != null) {
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.spacedBy(8.dp),
                         ) {
-                            Text(
-                                text = if (startDate != null) "Start: ${runCatching { LocalDate.parse(startDate).format(dateFormatter) }.getOrElse { startDate!! }}" else "Start date",
-                                maxLines = 1,
-                                fontSize = 11.sp,
+                            AssignmentCategoryChip(
+                                label = "Next class session",
+                                selected = sessionActive,
+                                enabled = !isCreating,
+                                onClick = {
+                                    startDate = sessionDate.toString()
+                                    startTime = sessionStartTime
+                                    endDate = sessionDate.toString()
+                                    endTime = sessionEndTime
+                                },
+                                modifier = Modifier.weight(1f),
+                            )
+                            AssignmentCategoryChip(
+                                label = "All-day",
+                                selected = !sessionActive &&
+                                    endDate == currentDate.plusDays(0).toString() &&
+                                    endTime == "23:59:00",
+                                enabled = !isCreating,
+                                onClick = {
+                                    startDate = currentDate.toString()
+                                    startTime = "08:00:00"
+                                    endDate = currentDate.toString()
+                                    endTime = "23:59:00"
+                                },
+                                modifier = Modifier.weight(1f),
                             )
                         }
-                        Button(
-                            onClick = { showEndDatePicker = true },
+                        AssignmentCategoryChip(
+                            label = "In 1 week",
+                            selected = !sessionActive && endDate == currentDate.plusDays(7).toString() &&
+                                endTime == "23:59:00" && startTime == "08:00:00",
                             enabled = !isCreating,
-                            modifier = Modifier.weight(1f),
-                            shape = RoundedCornerShape(14.dp),
-                            colors = ButtonDefaults.buttonColors(
-                                containerColor = if (endDate != null) PanthraaBlue else Color(0xFFF1F5F9),
-                                contentColor = if (endDate != null) Color.White else Color(0xFF334155),
-                            ),
-                        ) {
-                            Text(
-                                text = if (endDate != null) "End: ${runCatching { LocalDate.parse(endDate).format(dateFormatter) }.getOrElse { endDate!! }}" else "End date",
-                                maxLines = 1,
-                                fontSize = 11.sp,
-                            )
+                            onClick = {
+                                startDate = currentDate.toString()
+                                startTime = "08:00:00"
+                                endDate = currentDate.plusDays(7).toString()
+                                endTime = "23:59:00"
+                            },
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .height(44.dp),
+                        )
+                    } else {
+                        val presetOptions = listOf(
+                            0L to "Due today",
+                            1L to "Due tomorrow",
+                            3L to "In 3 days",
+                            7L to "In 1 week",
+                        )
+                        presetOptions.chunked(2).forEach { rowOptions ->
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                            ) {
+                                rowOptions.forEach { (days, label) ->
+                                    AssignmentCategoryChip(
+                                        label = label,
+                                        selected = endDate == currentDate.plusDays(days).toString() &&
+                                            endTime == "23:59:00" && startTime == "08:00:00",
+                                        enabled = !isCreating,
+                                        onClick = {
+                                            startDate = currentDate.toString()
+                                            startTime = "08:00:00"
+                                            endDate = currentDate.plusDays(days).toString()
+                                            endTime = "23:59:00"
+                                        },
+                                        modifier = Modifier.weight(1f),
+                                    )
+                                }
+                                repeat(2 - rowOptions.size) {
+                                    Spacer(modifier = Modifier.weight(1f))
+                                }
+                            }
                         }
+                    }
+
+                    val genericPresetActive = listOf(
+                        0L, 1L, 3L, 7L,
+                    ).any { days ->
+                        endDate == currentDate.plusDays(days).toString() &&
+                            endTime == "23:59:00" && startTime == "08:00:00"
                     }
 
                     Row(
                         modifier = Modifier.fillMaxWidth(),
                         horizontalArrangement = Arrangement.spacedBy(8.dp),
                     ) {
-                        Button(
-                            onClick = { showStartTimePicker = true },
+                        AssignmentCategoryChip(
+                            label = "Custom start/end",
+                            selected = !sessionActive && !genericPresetActive && (startDate != null || endDate != null),
                             enabled = !isCreating,
+                            onClick = { showStartDatePicker = true },
                             modifier = Modifier.weight(1f),
-                            shape = RoundedCornerShape(14.dp),
-                            colors = ButtonDefaults.buttonColors(
-                                containerColor = if (startTime != null) PanthraaBlue else Color(0xFFF1F5F9),
-                                contentColor = if (startTime != null) Color.White else Color(0xFF334155),
-                            ),
-                        ) {
-                            Text(
-                                text = if (startTime != null) "Start: ${runCatching { LocalTime.parse(startTime).format(timeDisplayFormatter) }.getOrElse { startTime!! }}" else "Start time",
-                                maxLines = 1,
-                                fontSize = 11.sp,
+                        )
+                        if (startDate != null || endDate != null) {
+                            AssignmentCategoryChip(
+                                label = "Clear",
+                                selected = false,
+                                enabled = !isCreating,
+                                onClick = {
+                                    startDate = null
+                                    startTime = null
+                                    endDate = null
+                                    endTime = null
+                                },
+                                modifier = Modifier.weight(1f),
                             )
+                        } else {
+                            Spacer(modifier = Modifier.weight(1f))
                         }
-                        Button(
-                            onClick = { showEndTimePicker = true },
-                            enabled = !isCreating,
-                            modifier = Modifier.weight(1f),
-                            shape = RoundedCornerShape(14.dp),
-                            colors = ButtonDefaults.buttonColors(
-                                containerColor = if (endTime != null) PanthraaBlue else Color(0xFFF1F5F9),
-                                contentColor = if (endTime != null) Color.White else Color(0xFF334155),
-                            ),
-                        ) {
-                            Text(
-                                text = if (endTime != null) "End: ${runCatching { LocalTime.parse(endTime).format(timeDisplayFormatter) }.getOrElse { endTime!! }}" else "End time",
-                                maxLines = 1,
-                                fontSize = 11.sp,
-                            )
-                        }
+                    }
+
+                    if (startDate != null || endDate != null) {
+                        val startLabel = listOfNotNull(
+                            startDate?.let { runCatching { LocalDate.parse(it).format(dateFormatter) }.getOrNull() },
+                            startTime?.let { runCatching { LocalTime.parse(it).format(timeDisplayFormatter) }.getOrNull() },
+                        ).joinToString(" ")
+                        val endLabel = listOfNotNull(
+                            endDate?.let { runCatching { LocalDate.parse(it).format(dateFormatter) }.getOrNull() },
+                            endTime?.let { runCatching { LocalTime.parse(it).format(timeDisplayFormatter) }.getOrNull() },
+                        ).joinToString(" ")
+                        Text(
+                            text = buildString {
+                                if (startDate != null) append("Opens $startLabel")
+                                if (startDate != null && endDate != null) append("  ")
+                                if (endDate != null) append("Due $endLabel")
+                            },
+                            color = Color(0xFF334155),
+                            fontWeight = FontWeight.SemiBold,
+                            fontSize = 11.5.sp,
+                        )
                     }
                 }
             }
@@ -6510,7 +7303,7 @@ internal fun UploadAssignmentDialog(
                     val cleanEndDate = if (isMaterial) null else endDate
                     val cleanStartTime = if (isMaterial) null else startTime
                     val cleanEndTime = if (isMaterial) null else endTime
-                    onUpload(title, instructions, category, points, cleanStartDate, cleanEndDate, cleanStartTime, cleanEndTime, assignmentType, submissionFormat, requiresFile, selectedFileUri)
+                    onUpload(title, instructions, category, points, cleanStartDate, cleanEndDate, cleanStartTime, cleanEndTime, assignmentType, submissionFormat, requiresFile, allowComments, selectedFileUri)
                 },
                 enabled = canUpload,
             )

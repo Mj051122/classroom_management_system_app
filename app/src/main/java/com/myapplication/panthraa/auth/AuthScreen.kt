@@ -494,8 +494,8 @@ private fun RoleSelectionBanner(role: UserRole) {
         UserRole.Professor -> "Professor access selected"
     }
     val helper = when (role) {
-        UserRole.Student -> "Classes, submissions, QR, and attendance viewing."
-        UserRole.Professor -> "Class management, activities, attendance scanning."
+        UserRole.Student -> "Classes, submissions, and attendance tracking."
+        UserRole.Professor -> "Class management, activities, and attendance recording."
     }
 
     Row(

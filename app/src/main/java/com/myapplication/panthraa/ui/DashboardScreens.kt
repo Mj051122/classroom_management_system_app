@@ -3,7 +3,6 @@
 import android.Manifest
 import android.content.pm.PackageManager
 import android.os.Build
-import android.graphics.Bitmap
 import android.content.Intent
 import android.net.Uri
 import android.provider.OpenableColumns
@@ -149,8 +148,6 @@ import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.TextUnit
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import androidx.compose.ui.window.Dialog
-import androidx.compose.ui.window.DialogProperties
 import androidx.core.content.ContextCompat
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavGraph.Companion.findStartDestination
@@ -180,10 +177,7 @@ import com.airbnb.lottie.compose.LottieCompositionSpec
 import com.airbnb.lottie.compose.LottieConstants
 import com.airbnb.lottie.compose.animateLottieCompositionAsState
 import com.airbnb.lottie.compose.rememberLottieComposition
-import com.google.zxing.BarcodeFormat
-import com.google.zxing.qrcode.QRCodeWriter
-import com.journeyapps.barcodescanner.ScanContract
-import com.journeyapps.barcodescanner.ScanOptions
+
 import kotlinx.coroutines.delay
 import kotlin.math.round
 import kotlinx.coroutines.Dispatchers
@@ -385,7 +379,6 @@ internal fun StudentHomeDashboard(
     onRefreshDashboard: () -> Unit,
     dashboardRootResetToken: Int = 0,
 ) {
-    var showQrPreview by remember { mutableStateOf(false) }
     var showProfileDetails by remember { mutableStateOf(false) }
     var showSchedulePage by remember { mutableStateOf(false) }
     var scheduleClock by remember { mutableStateOf(LocalDateTime.now(PhilippineZoneId)) }
@@ -396,7 +389,6 @@ internal fun StudentHomeDashboard(
     }
 
     LaunchedEffect(dashboardRootResetToken) {
-        showQrPreview = false
         showProfileDetails = false
         showSchedulePage = false
     }
@@ -412,13 +404,6 @@ internal fun StudentHomeDashboard(
             delay(60_000)
             scheduleClock = LocalDateTime.now(PhilippineZoneId)
         }
-    }
-
-    if (showQrPreview) {
-        StudentProfilePreviewDialog(
-            user = user,
-            onDismiss = { showQrPreview = false },
-        )
     }
 
     if (showProfileDetails) {
@@ -477,7 +462,6 @@ internal fun StudentHomeDashboard(
                 onOpenClasses = onOpenClassesTab,
                 onOpenPendingTasks = onOpenPendingTasks,
                 onOpenNewsFeed = onOpenNewsFeed,
-                onOpenQr = { showQrPreview = true },
                 onOpenSchedule = { showSchedulePage = true },
             )
         }
@@ -500,6 +484,13 @@ internal fun StudentHomeDashboard(
             StudentProgressHero(user = user, uiState = uiState)
         }
         item {
+            StudentLearningSummaryCard(
+                uiState = uiState,
+                onOpenGrades = onOpenGrades,
+                onOpenPendingTasks = onOpenPendingTasks,
+            )
+        }
+        item {
             StudentSectionHeader(title = "Subjects")
         }
         item {
@@ -507,7 +498,6 @@ internal fun StudentHomeDashboard(
                 uiState = uiState,
                 onOpenClasses = onOpenClassesTab,
                 onOpenPendingTasks = onOpenPendingTasks,
-                onOpenGrades = onOpenGrades,
             )
         }
         if (unreadAnnouncementCount == 0) {
@@ -1586,7 +1576,6 @@ internal fun StudentDashboardActionGrid(
     onOpenClasses: () -> Unit,
     onOpenPendingTasks: () -> Unit,
     onOpenNewsFeed: () -> Unit,
-    onOpenQr: () -> Unit,
     onOpenSchedule: () -> Unit,
 ) {
     Column(verticalArrangement = Arrangement.spacedBy(12.dp), modifier = Modifier.fillMaxWidth()) {
@@ -1601,17 +1590,6 @@ internal fun StudentDashboardActionGrid(
                 modifier = Modifier.weight(1f),
             )
             ProfQuickActionCard(
-                title = "QR Code",
-                subtitle = "Student ID",
-                icon = Icons.Filled.CheckCircle,
-                tint = Color(0xFF6D28D9),
-                chip = Color(0xFFF4F0FF),
-                onClick = onOpenQr,
-                modifier = Modifier.weight(1f),
-            )
-        }
-        Row(horizontalArrangement = Arrangement.spacedBy(12.dp), modifier = Modifier.fillMaxWidth()) {
-            ProfQuickActionCard(
                 title = "Schedule",
                 subtitle = "My classes",
                 icon = Icons.Filled.Event,
@@ -1620,7 +1598,6 @@ internal fun StudentDashboardActionGrid(
                 onClick = onOpenSchedule,
                 modifier = Modifier.weight(1f),
             )
-            Spacer(modifier = Modifier.weight(1f))
         }
     }
 }
@@ -1658,17 +1635,7 @@ internal fun StudentSubjectShortcutGrid(
     uiState: MainUiState,
     onOpenClasses: () -> Unit,
     onOpenPendingTasks: () -> Unit,
-    onOpenGrades: () -> Unit,
 ) {
-    val overallGrade = remember(uiState.studentGrades) { buildOverallGradeSummary(uiState.studentGrades).finalGrade }
-    val hasGrades = uiState.studentGrades.isNotEmpty()
-    val gradeValue = when {
-        uiState.isLoadingStudentGrades && !hasGrades -> "..."
-        hasGrades -> formatGradeNumber(overallGrade)
-        else -> "--"
-    }
-    val gradeTint = if (hasGrades) gradeTone(overallGrade) else Color(0xFF94A3B8)
-
     Row(horizontalArrangement = Arrangement.spacedBy(12.dp), modifier = Modifier.fillMaxWidth()) {
         PortalMiniCard(
             title = "Enrolled",
@@ -1676,15 +1643,6 @@ internal fun StudentSubjectShortcutGrid(
             icon = Icons.Filled.School,
             tint = Color(0xFF0F766E),
             onClick = onOpenClasses,
-            modifier = Modifier.weight(1f),
-        )
-        PortalMiniCard(
-            title = "Grades",
-            value = gradeValue,
-            icon = Icons.Filled.CheckCircle,
-            iconRes = R.drawable.star,
-            tint = gradeTint,
-            onClick = onOpenGrades,
             modifier = Modifier.weight(1f),
         )
         PortalMiniCard(
@@ -2223,14 +2181,12 @@ internal fun ProfessorHomeDashboard(
     dashboardRootResetToken: Int = 0,
 ) {
     var showProfileDetails by remember { mutableStateOf(false) }
-    var showQrPreview by remember { mutableStateOf(false) }
     var showUploadSubjectPicker by remember { mutableStateOf(false) }
     var showSchedulePage by remember { mutableStateOf(false) }
     var showReviewRequestsPage by remember { mutableStateOf(false) }
 
     LaunchedEffect(dashboardRootResetToken) {
         showProfileDetails = false
-        showQrPreview = false
         showUploadSubjectPicker = false
         showSchedulePage = false
         showReviewRequestsPage = false
@@ -2240,13 +2196,6 @@ internal fun ProfessorHomeDashboard(
         if (openScheduleSignal > 0) {
             showSchedulePage = true
         }
-    }
-
-    if (showQrPreview) {
-        ProfessorProfilePreviewDialog(
-            user = user,
-            onDismiss = { showQrPreview = false },
-        )
     }
 
     if (showProfileDetails) {
@@ -2358,7 +2307,8 @@ internal fun ProfessorHomeDashboard(
         item {
             ProfessorIdentityActionRow(
                 onOpenProfile = { showProfileDetails = true },
-                onOpenQr = { showQrPreview = true },
+                onOpenSchedule = { showSchedulePage = true },
+                scheduleCount = scheduleCount,
             )
         }
         item {
@@ -2386,7 +2336,6 @@ internal fun ProfessorHomeDashboard(
         item {
             ProfessorDashboardActionGrid(
                 classCount = activeClasses.size,
-                scheduleCount = scheduleCount,
                 onOpenClasses = { onOpenClassesTab() },
                 onOpenUpload = {
                     if (activeClasses.isEmpty()) {
@@ -2395,7 +2344,6 @@ internal fun ProfessorHomeDashboard(
                         showUploadSubjectPicker = true
                     }
                 },
-                onOpenSchedule = { showSchedulePage = true },
             )
         }
         }
@@ -2511,10 +2459,8 @@ internal fun ProfessorHeroHeader(
 @Composable
 internal fun ProfessorDashboardActionGrid(
     classCount: Int,
-    scheduleCount: Int,
     onOpenClasses: () -> Unit,
     onOpenUpload: () -> Unit,
-    onOpenSchedule: () -> Unit,
 ) {
     Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
         Row(horizontalArrangement = Arrangement.spacedBy(10.dp), modifier = Modifier.fillMaxWidth()) {
@@ -2534,17 +2480,6 @@ internal fun ProfessorDashboardActionGrid(
                 tint = PanthraaBlue,
                 chip = Color(0xFFEAF0FF),
                 onClick = onOpenUpload,
-                modifier = Modifier.weight(1f),
-            )
-        }
-        Row(horizontalArrangement = Arrangement.spacedBy(10.dp), modifier = Modifier.fillMaxWidth()) {
-            ProfQuickActionCard(
-                title = "View schedule",
-                subtitle = "$scheduleCount scheduled",
-                icon = Icons.Filled.Event,
-                tint = Color(0xFF0F766E),
-                chip = Color(0xFFECFDF5),
-                onClick = onOpenSchedule,
                 modifier = Modifier.weight(1f),
             )
         }
@@ -3305,7 +3240,8 @@ internal fun ProfessorUploadSubjectOption(
 @Composable
 internal fun ProfessorIdentityActionRow(
     onOpenProfile: () -> Unit,
-    onOpenQr: () -> Unit,
+    onOpenSchedule: () -> Unit,
+    scheduleCount: Int,
 ) {
     Row(horizontalArrangement = Arrangement.spacedBy(10.dp), modifier = Modifier.fillMaxWidth()) {
         ProfQuickActionCard(
@@ -3318,12 +3254,12 @@ internal fun ProfessorIdentityActionRow(
             modifier = Modifier.weight(1f),
         )
         ProfQuickActionCard(
-            title = "Professor ID",
-            subtitle = "QR credential",
-            icon = Icons.Filled.CheckCircle,
-            tint = Color(0xFF6D28D9),
-            chip = Color(0xFFF4F0FF),
-            onClick = onOpenQr,
+            title = "View schedule",
+            subtitle = "$scheduleCount scheduled",
+            icon = Icons.Filled.Event,
+            tint = Color(0xFF0F766E),
+            chip = Color(0xFFECFDF5),
+            onClick = onOpenSchedule,
             modifier = Modifier.weight(1f),
         )
     }
@@ -3396,87 +3332,6 @@ internal fun ProfQuickActionCard(
                         overflow = TextOverflow.Ellipsis,
                     )
                 }
-            }
-        }
-    }
-}
-
-@Composable
-internal fun ProfessorProfilePreviewDialog(
-    user: AppUser,
-    onDismiss: () -> Unit,
-) {
-    androidx.compose.ui.window.Dialog(onDismissRequest = onDismiss) {
-        Card(
-            modifier = Modifier.fillMaxWidth(),
-            shape = RoundedCornerShape(24.dp),
-            colors = CardDefaults.cardColors(containerColor = DialogSurface),
-        ) {
-            Column(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(24.dp),
-                verticalArrangement = Arrangement.spacedBy(16.dp),
-            ) {
-                DialogHeader(
-                    title = "Professor QR",
-                    subtitle = "ID card for identification.",
-                    icon = Icons.Filled.School,
-                )
-                
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(14.dp),
-                    verticalAlignment = Alignment.CenterVertically,
-                ) {
-                    Avatar(
-                        imageUrl = user.profilePictureUrl,
-                        name = user.fullName,
-                        modifier = Modifier
-                            .size(72.dp)
-                            .border(2.dp, Color.White, CircleShape)
-                            .shadow(4.dp, CircleShape),
-                        placeholderColor = Color(0xFFEAF0FF),
-                        initialColor = PanthraaBlue,
-                        initialFontSize = 26.sp,
-                        showBorder = false,
-                    )
-                    Column(
-                        verticalArrangement = Arrangement.spacedBy(4.dp),
-                    ) {
-                        Text(
-                            text = user.fullName.ifBlank { "Professor" },
-                            color = Color(0xFF0F172A),
-                            fontSize = 19.sp,
-                            fontWeight = FontWeight.ExtraBold,
-                            textAlign = TextAlign.Start,
-                        )
-                        Text(
-                            text = user.idNumber.ifBlank { "No ID number" },
-                            color = Color(0xFF64748B),
-                            fontSize = 14.sp,
-                            fontWeight = FontWeight.SemiBold,
-                            textAlign = TextAlign.Start,
-                        )
-                    }
-                }
-                
-                Box(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .clip(RoundedCornerShape(18.dp))
-                        .background(Color(0xFFF8FAFC))
-                        .border(1.dp, Color(0xFFE2E8F0), RoundedCornerShape(18.dp))
-                        .padding(14.dp),
-                    contentAlignment = Alignment.Center,
-                ) {
-                    StudentQrCard(
-                        idNumber = user.idNumber,
-                        modifier = Modifier.size(172.dp),
-                    )
-                }
-                
-                DialogPrimaryButton(text = "Done", onClick = onDismiss, enabled = true)
             }
         }
     }
@@ -3835,114 +3690,6 @@ internal fun StudentHeroHeader(
 }
 
 @Composable
-internal fun StudentProfilePreviewDialog(
-    user: AppUser,
-    onDismiss: () -> Unit,
-) {
-    androidx.compose.ui.window.Dialog(onDismissRequest = onDismiss) {
-        Card(
-            modifier = Modifier.fillMaxWidth(),
-            shape = RoundedCornerShape(24.dp),
-            colors = CardDefaults.cardColors(containerColor = DialogSurface),
-        ) {
-            Column(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(24.dp),
-                verticalArrangement = Arrangement.spacedBy(16.dp),
-            ) {
-                DialogHeader(
-                    title = "Student QR",
-                    subtitle = "Use this for attendance scanning.",
-                    icon = Icons.Filled.School,
-                )
-                
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(14.dp),
-                    verticalAlignment = Alignment.CenterVertically,
-                ) {
-                    Avatar(
-                        imageUrl = user.profilePictureUrl,
-                        name = user.fullName,
-                        modifier = Modifier
-                            .size(72.dp)
-                            .border(2.dp, Color.White, CircleShape)
-                            .shadow(4.dp, CircleShape),
-                        placeholderColor = Color(0xFFEAF0FF),
-                        initialColor = PanthraaBlue,
-                        initialFontSize = 26.sp,
-                        showBorder = false,
-                    )
-                    Column(
-                        verticalArrangement = Arrangement.spacedBy(4.dp),
-                    ) {
-                        Text(
-                            text = user.fullName.ifBlank { "Student" },
-                            color = Color(0xFF0F172A),
-                            fontSize = 19.sp,
-                            fontWeight = FontWeight.ExtraBold,
-                            textAlign = TextAlign.Start,
-                        )
-                        Text(
-                            text = user.idNumber.ifBlank { "No ID number" },
-                            color = Color(0xFF64748B),
-                            fontSize = 14.sp,
-                            fontWeight = FontWeight.SemiBold,
-                            textAlign = TextAlign.Start,
-                        )
-                    }
-                }
-                
-                Box(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .clip(RoundedCornerShape(18.dp))
-                        .background(Color(0xFFF8FAFC))
-                        .border(1.dp, Color(0xFFE2E8F0), RoundedCornerShape(18.dp))
-                        .padding(14.dp),
-                    contentAlignment = Alignment.Center,
-                ) {
-                    StudentQrCard(
-                        idNumber = user.idNumber,
-                        modifier = Modifier.size(172.dp),
-                    )
-                }
-                
-                DialogPrimaryButton(text = "Done", onClick = onDismiss, enabled = true)
-            }
-        }
-    }
-}
-
-@Composable
-internal fun StudentQrCard(
-    idNumber: String,
-    modifier: Modifier = Modifier,
-) {
-    val bitmap = remember(idNumber) {
-        idNumber.takeIf { it.isNotBlank() }?.let { generateQrBitmap(it, 512) }
-    }
-
-    if (bitmap != null) {
-        Image(
-            bitmap = bitmap.asImageBitmap(),
-            contentDescription = "Student QR code",
-            modifier = modifier,
-            contentScale = ContentScale.Fit,
-        )
-    } else {
-        Box(modifier = modifier, contentAlignment = Alignment.Center) {
-            Text(
-                text = "No ID number",
-                color = Color(0xFF64748B),
-                fontWeight = FontWeight.SemiBold,
-            )
-        }
-    }
-}
-
-@Composable
 internal fun StudentTodayScheduleCard(
     schedule: StudentDashboardTodaySchedule,
     onOpenClass: (StudentClass) -> Unit,
@@ -3959,17 +3706,6 @@ internal fun StudentTodayScheduleCard(
             )
         },
     )
-}
-
-internal fun generateQrBitmap(value: String, size: Int): Bitmap {
-    val matrix = QRCodeWriter().encode(value, BarcodeFormat.QR_CODE, size, size)
-    return Bitmap.createBitmap(size, size, Bitmap.Config.ARGB_8888).apply {
-        for (x in 0 until size) {
-            for (y in 0 until size) {
-                setPixel(x, y, if (matrix[x, y]) android.graphics.Color.BLACK else android.graphics.Color.WHITE)
-            }
-        }
-    }
 }
 
 @Composable
@@ -4096,6 +3832,227 @@ internal fun StudentProgressHero(user: AppUser, uiState: MainUiState) {
             }
         }
     }
+}
+
+@Composable
+internal fun StudentLearningSummaryCard(
+    uiState: MainUiState,
+    onOpenGrades: () -> Unit,
+    onOpenPendingTasks: () -> Unit,
+) {
+    val hasGrades = uiState.studentGrades.isNotEmpty()
+    val overallSummary = remember(uiState.studentGrades) { buildOverallGradeSummary(uiState.studentGrades) }
+    val gradeValue = when {
+        uiState.isLoadingStudentGrades && !hasGrades -> "..."
+        hasGrades -> formatGradeNumber(overallSummary.finalGrade)
+        else -> "--"
+    }
+    val gradeLabel = when {
+        uiState.isLoadingStudentGrades && !hasGrades -> "Computing"
+        hasGrades -> gradeStatusLabel(overallSummary.finalGrade)
+        else -> "No grades yet"
+    }
+    val subjectGradeMap = remember(uiState.studentGrades) {
+        buildStudentSubjectGradeSummaries(uiState.studentGrades).associateBy { it.classId }
+    }
+    val submittedTotal = uiState.studentClasses.sumOf { it.completedAssignments }
+    val totalWork = uiState.studentClasses.sumOf { it.totalAssignments }
+    val pendingCount = uiState.pendingAssignments.size
+
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(18.dp),
+        colors = CardDefaults.cardColors(containerColor = Color.White),
+        elevation = CardDefaults.cardElevation(defaultElevation = 3.dp),
+        border = BorderStroke(1.dp, Color(0xFFE2E8F0)),
+    ) {
+        Column(modifier = Modifier.fillMaxWidth()) {
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .background(
+                        Brush.linearGradient(
+                            colors = listOf(Color(0xFF0F2E9E), Color(0xFF5B38F5), Color(0xFF12A8A0)),
+                            start = Offset(0f, 0f),
+                            end = Offset(900f, 220f),
+                        ),
+                    )
+                    .clickable(onClick = onOpenGrades)
+                    .padding(horizontal = 16.dp, vertical = 14.dp),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(12.dp),
+            ) {
+                Column(
+                    modifier = Modifier.weight(1f),
+                    verticalArrangement = Arrangement.spacedBy(2.dp),
+                ) {
+                    Text(
+                        text = "Learning Summary",
+                        color = Color.White,
+                        fontWeight = FontWeight.ExtraBold,
+                        fontSize = 16.sp,
+                    )
+                    Text(
+                        text = if (hasGrades) {
+                            "Overall average across your ${uiState.studentClasses.size} subject${if (uiState.studentClasses.size == 1) "" else "s"}."
+                        } else {
+                            "Your progress until your first graded work."
+                        },
+                        color = Color.White.copy(alpha = 0.78f),
+                        fontSize = 11.sp,
+                        lineHeight = 13.sp,
+                    )
+                }
+                Column(horizontalAlignment = Alignment.End) {
+                    Text(
+                        text = gradeValue,
+                        color = Color.White,
+                        fontWeight = FontWeight.ExtraBold,
+                        fontSize = 26.sp,
+                        lineHeight = 28.sp,
+                    )
+                    Text(
+                        text = gradeLabel,
+                        color = Color.White.copy(alpha = 0.85f),
+                        fontWeight = FontWeight.ExtraBold,
+                        fontSize = 11.sp,
+                    )
+                }
+            }
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(vertical = 12.dp),
+                horizontalArrangement = Arrangement.SpaceEvenly,
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                LearningSummaryStat(
+                    value = pendingCount.toString(),
+                    label = "Pending",
+                    onClick = onOpenPendingTasks,
+                )
+                LearningSummaryDivider()
+                LearningSummaryStat(
+                    value = if (totalWork > 0) "$submittedTotal/$totalWork" else "--",
+                    label = "Submitted",
+                )
+                LearningSummaryDivider()
+                LearningSummaryStat(
+                    value = uiState.studentClasses.size.toString(),
+                    label = "Subjects",
+                    onClick = onOpenGrades,
+                )
+            }
+            if (uiState.studentClasses.isNotEmpty()) {
+                HorizontalDivider(color = Color(0xFFE2E8F0), thickness = 1.dp)
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 14.dp, vertical = 10.dp),
+                    verticalArrangement = Arrangement.spacedBy(10.dp),
+                ) {
+                    uiState.studentClasses.forEach { classItem ->
+                        val subjectSummary = subjectGradeMap[classItem.id]
+                        val progress = classItem.progressPercentage.coerceIn(0, 100)
+                        val gradeTint = if (subjectSummary != null) gradeTone(subjectSummary.finalGrade) else Color(0xFF94A3B8)
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(10.dp),
+                        ) {
+                            Column(
+                                modifier = Modifier.weight(1f),
+                                verticalArrangement = Arrangement.spacedBy(3.dp),
+                            ) {
+                                Text(
+                                    text = classItem.displayClassName,
+                                    color = Color(0xFF0F172A),
+                                    fontWeight = FontWeight.ExtraBold,
+                                    fontSize = 12.5.sp,
+                                    maxLines = 1,
+                                    overflow = TextOverflow.Ellipsis,
+                                )
+                                Text(
+                                    text = "${classItem.completedAssignments}/${classItem.totalAssignments} submitted",
+                                    color = Color(0xFF64748B),
+                                    fontSize = 10.5.sp,
+                                    fontWeight = FontWeight.SemiBold,
+                                )
+                                Box(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .height(5.dp)
+                                        .clip(RoundedCornerShape(999.dp))
+                                        .background(Color(0xFFE2E8F0)),
+                                ) {
+                                    Box(
+                                        modifier = Modifier
+                                            .fillMaxWidth(progress / 100f)
+                                            .height(5.dp)
+                                            .clip(RoundedCornerShape(999.dp))
+                                            .background(if (subjectSummary != null) gradeTint else PanthraaBlue),
+                                    )
+                                }
+                            }
+                            Box(
+                                modifier = Modifier
+                                    .clip(RoundedCornerShape(999.dp))
+                                    .background(gradeTint.copy(alpha = if (subjectSummary != null) 0.12f else 0.08f))
+                                    .padding(horizontal = 9.dp, vertical = 4.dp),
+                            ) {
+                                Text(
+                                    text = if (subjectSummary != null) formatGradeNumber(subjectSummary.finalGrade) else "No grade",
+                                    color = if (subjectSummary != null) gradeTint else Color(0xFF64748B),
+                                    fontSize = 10.5.sp,
+                                    fontWeight = FontWeight.ExtraBold,
+                                )
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun LearningSummaryStat(
+    value: String,
+    label: String,
+    onClick: (() -> Unit)? = null,
+) {
+    Column(
+        modifier = Modifier
+            .clip(RoundedCornerShape(12.dp))
+            .then(if (onClick != null) Modifier.clickable(onClick = onClick) else Modifier)
+            .padding(horizontal = 14.dp, vertical = 6.dp),
+        horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.spacedBy(1.dp),
+    ) {
+        Text(
+            text = value,
+            color = Color(0xFF0F172A),
+            fontWeight = FontWeight.ExtraBold,
+            fontSize = 17.sp,
+            lineHeight = 18.sp,
+        )
+        Text(
+            text = label,
+            color = Color(0xFF64748B),
+            fontSize = 10.5.sp,
+            fontWeight = FontWeight.SemiBold,
+        )
+    }
+}
+
+@Composable
+private fun LearningSummaryDivider() {
+    Box(
+        modifier = Modifier
+            .width(1.dp)
+            .height(30.dp)
+            .background(Color(0xFFE2E8F0)),
+    )
 }
 
 /** Redesigned 2x2 stat grid with icons + accent tints. */
