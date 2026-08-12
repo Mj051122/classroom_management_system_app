@@ -136,6 +136,38 @@ For every future Supabase change, append a dated entry here. Record the project 
   - Live Supabase behavior test not yet performed (patch not yet applied).
 - Intentionally unchanged: UUID `app_users.id` generation, login semantics, RLS, and all assignment/grading/attendance RPCs.
 
+### 2026-08-12 - One account per ID number
+
+- Status: SQL authored and app-aligned; NOT yet applied to project `ulxbeelcvbawkpcutaom` (run SECTION 1 audit first, then apply sections 3-4 of `supabase_id_number_unique_patch.sql` in the Supabase SQL editor; SECTION 2 only if the audit finds duplicates).
+- Forward SQL: `../../supabase_id_number_unique_patch.sql`
+- Application method: paste into the Supabase SQL editor, section by section. Ends with `notify pgrst, 'reload schema';`.
+- Database changes:
+  - Added partial unique index `app_users_id_number_ci_key` (unique on `lower(trim(id_number))` only when non-blank, so rows without ID numbers are untouched).
+  - Hardened `complete_email_registration` with an explicit duplicate-ID guard that raises `ID number is already registered. Log in with the email account that owns it.` before the index would throw a raw unique-violation error.
+  - The unique index remains the hard guard for concurrent registrations racing past the friendly check.
+- Android changes:
+  - `../src/main/java/com/myapplication/panthraa/auth/AuthViewModel.kt` maps the RPC's duplicate message and Postgres `unique_violation` to a user-friendly screen message.
+- Mirror files kept in sync so future resets do not diverge: `supabase_id_number_unique_patch.sql` is the canonical forward file; rollback is `drop index app_users_id_number_ci_key;` plus re-running the previous `complete_email_registration` from the staged migration.
+- Verification:
+  - Android `:app:compileDebugKotlin` and `:app:compileDebugUnitTestKotlin` pass after the Kotlin change.
+  - Live Supabase audit and application not yet performed.
+- Intentionally unchanged: auth users table, phone/email indexes, login semantics, RLS, and all assignment/grading/attendance RPCs.
+
+### 2026-08-12 - Pre-flight ID check before verification email
+
+- Status: SQL authored and app-aligned; NOT yet applied to project `ulxbeelcvbawkpcutaom` (run SECTION 5 of `supabase_id_number_unique_patch.sql` in the Supabase SQL editor to deploy).
+- Forward SQL: `../../supabase_id_number_unique_patch.sql` (SECTION 5 only; sections 1-4 already applied).
+- Application method: paste the SECTION 5 block into the Supabase SQL editor and run. Ends with `notify pgrst, 'reload schema';`.
+- Database changes:
+  - Added `check_id_number_available(p_id_number)` — returns `true` when the ID is free, raises the friendly duplicate message when it is taken. Granted to `anon` and `authenticated`.
+- Android changes:
+  - `../src/main/java/com/myapplication/panthraa/auth/AuthRepository.kt` `beginRegistration` now calls `check_id_number_available` **before** `signUpWith(Email)`, so a taken ID is rejected before any verification email is sent and no stranded `auth.users` entry is created.
+  - `../src/main/java/com/myapplication/panthraa/auth/AuthViewModel.kt` passes the ID number into `beginRegistration`.
+- Verification:
+  - Android `:app:compileDebugKotlin` and `:app:compileDebugUnitTestKotlin` pass after the Kotlin change.
+  - Live Supabase behavior test not yet performed (patch not yet applied).
+- Intentionally unchanged: `complete_email_registration` duplicate guard, unique index, login semantics, RLS.
+
 ## Safety Rules
 
 - Keep RLS enabled on exposed public tables.

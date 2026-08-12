@@ -116,8 +116,12 @@ class AuthViewModel(
         }
     }
 
-    fun updateFullName(value: String) {
-        _uiState.update { it.copy(fullName = value.take(MAX_FULL_NAME_LENGTH)) }
+    fun updateFirstName(value: String) {
+        _uiState.update { it.copy(firstName = value.take(MAX_FIRST_NAME_LENGTH)) }
+    }
+
+    fun updateLastName(value: String) {
+        _uiState.update { it.copy(lastName = value.take(MAX_LAST_NAME_LENGTH)) }
     }
 
     fun updateEmail(value: String) {
@@ -192,7 +196,7 @@ class AuthViewModel(
     private suspend fun submitRegistration(state: AuthUiState) {
         when (state.emailAuthStage) {
             EmailAuthStage.Form -> {
-                repository.beginRegistration(state.email, state.password)
+                repository.beginRegistration(state.email, state.password, state.idNumber)
                 moveToOtp("Verification code sent. Check your email.")
             }
             EmailAuthStage.VerifyOtp -> {
@@ -202,7 +206,7 @@ class AuthViewModel(
                         email = state.email,
                         otp = state.otp,
                         idNumber = state.idNumber,
-                        fullName = state.fullName,
+                        fullName = state.composedFullName(),
                         role = role,
                     ),
                     "Registration complete.",
@@ -359,7 +363,10 @@ class AuthViewModel(
             state.selectedRole == null -> "Please select a role."
             state.idNumber.isBlank() -> "ID number is required."
             !ID_NUMBER_PATTERN.matches(state.idNumber.trim()) -> "ID number must use XX-XXXX format."
-            state.fullName.isBlank() -> "Full name is required."
+            state.firstName.isBlank() -> "First name is required."
+            state.lastName.isBlank() -> "Last name is required."
+            containsNumber(state.firstName) || containsNumber(state.lastName) ->
+                "Name cannot contain numbers."
             validateEmail(state.email) != null -> validateEmail(state.email)
             else -> validateNewPassword(state)
         }
@@ -390,6 +397,9 @@ class AuthViewModel(
         return when {
             rawMessage.contains("Invalid login credentials", ignoreCase = true) ->
                 "Invalid email or password."
+            rawMessage.contains("ID number is already registered", ignoreCase = true) ||
+                rawMessage.contains("duplicate key value violates unique constraint", ignoreCase = true) ->
+                "That ID number is already registered. If it's yours, log in with the email you used."
             rawMessage.contains("not connected to an app profile", ignoreCase = true) ->
                 "This email has not been linked yet. Register with this email first."
             rawMessage.contains("OTP", ignoreCase = true) || rawMessage.contains("token", ignoreCase = true) ->
@@ -402,6 +412,9 @@ class AuthViewModel(
     private fun AppUser.toUserRole(): UserRole? =
         UserRole.entries.firstOrNull { it.value.equals(role, ignoreCase = true) }
 
+    private fun AuthUiState.composedFullName(): String =
+        "${firstName.trim()} ${lastName.trim()}".trim().take(MAX_FULL_NAME_LENGTH)
+
     private fun AuthUiState.clearedAuthFields(
         mode: AuthMode,
         keepEmail: Boolean = false,
@@ -409,7 +422,8 @@ class AuthViewModel(
         mode = mode,
         selectedRole = if (mode == AuthMode.Register) selectedRole else null,
         idNumber = "",
-        fullName = "",
+        firstName = "",
+        lastName = "",
         email = if (keepEmail) email else "",
         password = "",
         confirmPassword = "",
@@ -422,6 +436,8 @@ class AuthViewModel(
     companion object {
         private const val ID_NUMBER_PREFIX_LENGTH = 2
         private const val MAX_ID_NUMBER_DIGIT_COUNT = 6
+        private const val MAX_FIRST_NAME_LENGTH = 15
+        private const val MAX_LAST_NAME_LENGTH = 15
         private const val MAX_FULL_NAME_LENGTH = 30
         private const val MAX_EMAIL_LENGTH = 254
         private const val EMAIL_OTP_LENGTH = 8
@@ -433,6 +449,9 @@ class AuthViewModel(
         internal fun isValidPhilippinePhone(value: String): Boolean = PHONE_PATTERN.matches(value)
 
         internal fun isValidEmail(value: String): Boolean = EMAIL_PATTERN.matches(value.trim())
+
+        internal fun containsNumber(value: String): Boolean =
+            value.trim().any(Char::isDigit)
     }
 }
 

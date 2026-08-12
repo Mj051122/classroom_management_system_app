@@ -86,7 +86,8 @@ fun AuthScreen(
     uiState: AuthUiState,
     onRoleSelected: (UserRole) -> Unit,
     onIdNumberChanged: (String) -> Unit,
-    onFullNameChanged: (String) -> Unit,
+    onFirstNameChanged: (String) -> Unit,
+    onLastNameChanged: (String) -> Unit,
     onEmailChanged: (String) -> Unit,
     onPasswordChanged: (String) -> Unit,
     onConfirmPasswordChanged: (String) -> Unit,
@@ -127,7 +128,8 @@ fun AuthScreen(
                 uiState = uiState,
                 onRoleSelected = onRoleSelected,
                 onIdNumberChanged = onIdNumberChanged,
-                onFullNameChanged = onFullNameChanged,
+                onFirstNameChanged = onFirstNameChanged,
+                onLastNameChanged = onLastNameChanged,
                 onEmailChanged = onEmailChanged,
                 onPasswordChanged = onPasswordChanged,
                 onConfirmPasswordChanged = onConfirmPasswordChanged,
@@ -201,7 +203,8 @@ private fun AuthCard(
     uiState: AuthUiState,
     onRoleSelected: (UserRole) -> Unit,
     onIdNumberChanged: (String) -> Unit,
-    onFullNameChanged: (String) -> Unit,
+    onFirstNameChanged: (String) -> Unit,
+    onLastNameChanged: (String) -> Unit,
     onEmailChanged: (String) -> Unit,
     onPasswordChanged: (String) -> Unit,
     onConfirmPasswordChanged: (String) -> Unit,
@@ -298,10 +301,19 @@ private fun AuthCard(
                         IdNumberField(uiState.idNumber, onIdNumberChanged, fieldsEnabled)
                         Spacer(modifier = Modifier.height(14.dp))
                         PanthraTextField(
-                            value = uiState.fullName,
-                            onValueChange = onFullNameChanged,
-                            label = "Full Name",
-                            placeholder = "Juan Dela Cruz",
+                            value = uiState.firstName,
+                            onValueChange = onFirstNameChanged,
+                            label = "First Name",
+                            placeholder = "Juan",
+                            enabled = fieldsEnabled,
+                            keyboardType = KeyboardType.Text,
+                        )
+                        Spacer(modifier = Modifier.height(14.dp))
+                        PanthraTextField(
+                            value = uiState.lastName,
+                            onValueChange = onLastNameChanged,
+                            label = "Last Name",
+                            placeholder = "Dela Cruz",
                             enabled = fieldsEnabled,
                             keyboardType = KeyboardType.Text,
                         )
