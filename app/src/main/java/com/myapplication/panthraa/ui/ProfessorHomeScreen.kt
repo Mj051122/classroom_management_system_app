@@ -29,7 +29,7 @@ fun ProfessorHomeScreen(
         verticalArrangement = Arrangement.Center,
     ) {
         Text(
-            text = "Professor Home",
+            text = "Faculty Home",
             style = MaterialTheme.typography.headlineMedium,
             fontWeight = FontWeight.Bold,
         )

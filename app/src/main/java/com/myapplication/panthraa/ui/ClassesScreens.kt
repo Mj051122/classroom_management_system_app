@@ -73,6 +73,8 @@ import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.filled.Logout
 import androidx.compose.material.icons.automirrored.filled.OpenInNew
 import androidx.compose.material.icons.filled.Description
+import androidx.compose.material.icons.filled.VisibilityOff
+import androidx.compose.material.icons.filled.Visibility
 import androidx.compose.material.icons.outlined.Insights
 import androidx.compose.material.icons.outlined.CreateNewFolder
 import androidx.compose.material.icons.outlined.Lightbulb
@@ -214,6 +216,8 @@ fun ClassesScreen(
     onRefreshAssignmentComments: (String) -> Unit = {},
     onPostAssignmentComment: (String, String, String) -> Unit = { _, _, _ -> },
     onDeleteAssignmentComment: (String) -> Unit = {},
+    onHideAssignmentComment: (String) -> Unit = {},
+    onUnhideAssignmentComment: (String) -> Unit = {},
     onRecordAttendance: (String, String) -> Unit,
     onGradeSubmission: (String, Int, Int) -> Unit,
     onSubmitAssignment: (String, String, Uri?) -> Unit,
@@ -424,6 +428,7 @@ fun ClassesScreen(
                 isLoadingComments = uiState.isLoadingAssignmentComments,
                 isPostingComment = uiState.isPostingComment,
                 isDeletingComment = uiState.isDeletingComment,
+                isHidingComment = uiState.isHidingComment,
                 currentUserId = currentUser.id,
                 onSubmitAssignment = onSubmitAssignment,
                 onRecordMaterialView = onRecordMaterialView,
@@ -431,6 +436,8 @@ fun ClassesScreen(
                 onRefreshComments = onRefreshAssignmentComments,
                 onPostComment = onPostAssignmentComment,
                 onDeleteComment = onDeleteAssignmentComment,
+                onHideComment = onHideAssignmentComment,
+                onUnhideComment = onUnhideAssignmentComment,
                 onOpenAttendance = { selectedStudentAttendanceAssignment = assignment },
                 onBack = { selectedStudentAssignment = null },
             )
@@ -496,6 +503,7 @@ fun ClassesScreen(
                 isLoadingComments = uiState.isLoadingAssignmentComments,
                 isPostingComment = uiState.isPostingComment,
                 isDeletingComment = uiState.isDeletingComment,
+                isHidingComment = uiState.isHidingComment,
                 currentUserId = currentUser.id,
                 onLoadSubmissions = onLoadAssignmentSubmissions,
                 isRefreshingSubmissions = RefreshSurface.Submissions in uiState.refreshingSurfaces,
@@ -504,6 +512,8 @@ fun ClassesScreen(
                 onRefreshComments = onRefreshAssignmentComments,
                 onPostComment = onPostAssignmentComment,
                 onDeleteComment = onDeleteAssignmentComment,
+                onHideComment = onHideAssignmentComment,
+                onUnhideComment = onUnhideAssignmentComment,
                 onGradeSubmission = onGradeSubmission,
                 onDeleteAssignment = onDeleteAssignment,
                 onUpdateAssignment = onUpdateAssignment,
@@ -4525,6 +4535,7 @@ internal fun StudentAssignmentDetailPage(
     isLoadingComments: Boolean = false,
     isPostingComment: Boolean = false,
     isDeletingComment: Boolean = false,
+    isHidingComment: Boolean = false,
     currentUserId: String = "",
     onSubmitAssignment: (String, String, Uri?) -> Unit,
     onRecordMaterialView: (String) -> Unit,
@@ -4532,6 +4543,8 @@ internal fun StudentAssignmentDetailPage(
     onRefreshComments: (String) -> Unit = {},
     onPostComment: (String, String, String) -> Unit = { _, _, _ -> },
     onDeleteComment: (String) -> Unit = {},
+    onHideComment: (String) -> Unit = {},
+    onUnhideComment: (String) -> Unit = {},
     onOpenAttendance: () -> Unit,
     onBack: () -> Unit,
 ) {
@@ -4870,9 +4883,12 @@ internal fun StudentAssignmentDetailPage(
             isLoading = isLoadingComments,
             isPosting = isPostingComment,
             isDeleting = isDeletingComment,
+            isHiding = isHidingComment,
             internetRequired = internetRequired,
             onPostComment = onPostComment,
             onDeleteComment = onDeleteComment,
+            onHideComment = onHideComment,
+            onUnhideComment = onUnhideComment,
         )
     }
 }
@@ -5157,6 +5173,7 @@ internal fun ProfessorAssignmentDetailPage(
     isLoadingComments: Boolean = false,
     isPostingComment: Boolean = false,
     isDeletingComment: Boolean = false,
+    isHidingComment: Boolean = false,
     currentUserId: String = "",
     onLoadSubmissions: (String) -> Unit,
     isRefreshingSubmissions: Boolean,
@@ -5165,6 +5182,8 @@ internal fun ProfessorAssignmentDetailPage(
     onRefreshComments: (String) -> Unit = {},
     onPostComment: (String, String, String) -> Unit = { _, _, _ -> },
     onDeleteComment: (String) -> Unit = {},
+    onHideComment: (String) -> Unit = {},
+    onUnhideComment: (String) -> Unit = {},
     onGradeSubmission: (String, Int, Int) -> Unit,
     onDeleteAssignment: (String) -> Unit,
     onUpdateAssignment: (String, String, String, String, Int, String?, String?, String?, String?, String, String, Boolean, Boolean, Uri?) -> Unit,
@@ -5374,9 +5393,12 @@ internal fun ProfessorAssignmentDetailPage(
             isLoading = isLoadingComments,
             isPosting = isPostingComment,
             isDeleting = isDeletingComment,
+            isHiding = isHidingComment,
             internetRequired = internetRequired,
             onPostComment = onPostComment,
             onDeleteComment = onDeleteComment,
+            onHideComment = onHideComment,
+            onUnhideComment = onUnhideComment,
         )
     }
 }
@@ -5465,12 +5487,16 @@ internal fun AssignmentCommentsSection(
     isLoading: Boolean,
     isPosting: Boolean,
     isDeleting: Boolean,
+    isHiding: Boolean,
     internetRequired: Boolean,
     onPostComment: (String, String, String) -> Unit,
     onDeleteComment: (String) -> Unit,
+    onHideComment: (String) -> Unit,
+    onUnhideComment: (String) -> Unit,
 ) {
     var draft by remember(assignment.id) { mutableStateOf("") }
     var visibility by remember(assignment.id) { mutableStateOf("public") }
+    var pendingDeleteCommentId by remember(assignment.id) { mutableStateOf<String?>(null) }
     val isStudentView = !isProfessorView
     val commentsEnabled = isProfessorView || assignment.allowComments
     val canPost = commentsEnabled && !internetRequired && !isPosting && draft.isNotBlank()
@@ -5566,8 +5592,11 @@ internal fun AssignmentCommentsSection(
                             currentUserId = currentUserId,
                             isProfessorView = isProfessorView,
                             isDeleting = isDeleting,
+                            isHiding = isHiding,
                             internetRequired = internetRequired,
-                            onDelete = { onDeleteComment(comment.id) },
+                            onDelete = { pendingDeleteCommentId = comment.id },
+                            onHide = { onHideComment(comment.id) },
+                            onUnhide = { onUnhideComment(comment.id) },
                         )
                     }
                 }
@@ -5663,6 +5692,32 @@ internal fun AssignmentCommentsSection(
             }
         }
     }
+
+    pendingDeleteCommentId?.let { commentId ->
+        AlertDialog(
+            onDismissRequest = { if (!isDeleting) pendingDeleteCommentId = null },
+            title = { Text("Delete comment?") },
+            text = { Text("This will permanently remove your comment for everyone. This cannot be undone.") },
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        pendingDeleteCommentId = null
+                        onDeleteComment(commentId)
+                    },
+                    colors = ButtonDefaults.textButtonColors(contentColor = Color(0xFFBE123C)),
+                ) {
+                    Text("Delete")
+                }
+            },
+            dismissButton = {
+                TextButton(
+                    onClick = { if (!isDeleting) pendingDeleteCommentId = null },
+                ) {
+                    Text("Cancel")
+                }
+            },
+        )
+    }
 }
 
 @Composable
@@ -5671,10 +5726,15 @@ private fun AssignmentCommentRow(
     currentUserId: String,
     isProfessorView: Boolean,
     isDeleting: Boolean,
+    isHiding: Boolean,
     internetRequired: Boolean,
     onDelete: () -> Unit,
+    onHide: () -> Unit,
+    onUnhide: () -> Unit,
 ) {
-    val canDelete = comment.id.isNotBlank() && (comment.authorId == currentUserId || isProfessorView)
+    val isOwnComment = comment.authorId == currentUserId
+    val canDelete = comment.id.isNotBlank() && isOwnComment
+    val canHide = comment.id.isNotBlank() && isProfessorView && !isOwnComment
     Row(
         modifier = Modifier.fillMaxWidth(),
         horizontalArrangement = Arrangement.spacedBy(10.dp),
@@ -5704,7 +5764,7 @@ private fun AssignmentCommentRow(
                 )
                 if (comment.authorRole.equals("professor", ignoreCase = true)) {
                     CommentTag(
-                        text = "Professor",
+                        text = "Faculty",
                         background = Color(0xFFEAF0FF),
                         content = PanthraaBlue,
                     )
@@ -5715,6 +5775,13 @@ private fun AssignmentCommentRow(
                         background = Color(0xFFFEF3C7),
                         content = Color(0xFF92400E),
                         showLock = true,
+                    )
+                }
+                if (comment.isHidden && isProfessorView) {
+                    CommentTag(
+                        text = "Hidden",
+                        background = Color(0xFFF1F5F9),
+                        content = Color(0xFF475569),
                     )
                 }
             }
@@ -5741,6 +5808,20 @@ private fun AssignmentCommentRow(
                     imageVector = Icons.Filled.Delete,
                     contentDescription = "Delete comment",
                     tint = Color(0xFFBE123C),
+                    modifier = Modifier.size(17.dp),
+                )
+            }
+        }
+        if (canHide) {
+            IconButton(
+                onClick = if (comment.isHidden) onUnhide else onHide,
+                enabled = !isHiding && !internetRequired,
+                modifier = Modifier.size(32.dp),
+            ) {
+                Icon(
+                    imageVector = if (comment.isHidden) Icons.Filled.Visibility else Icons.Filled.VisibilityOff,
+                    contentDescription = if (comment.isHidden) "Unhide comment" else "Hide comment from everyone",
+                    tint = if (comment.isHidden) Color(0xFF0F766E) else Color(0xFF92400E),
                     modifier = Modifier.size(17.dp),
                 )
             }

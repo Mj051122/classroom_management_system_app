@@ -165,6 +165,8 @@ data class AssignmentComment(
     @SerialName("author_photo_url")
     val authorPhotoUrl: String? = null,
     val visibility: String = "public",
+    @SerialName("is_hidden")
+    val isHidden: Boolean = false,
     val content: String = "",
     @SerialName("created_at")
     val createdAt: String? = null,

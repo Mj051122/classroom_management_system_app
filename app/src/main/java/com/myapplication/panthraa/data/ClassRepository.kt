@@ -458,6 +458,32 @@ class ClassRepository(
         invalidateComments(result.assignmentId)
     }
 
+    suspend fun hideAssignmentComment(commentId: String, professorId: String) {
+        val cleanCommentId = requireUuid(commentId, "Comment ID")
+        val cleanProfessorId = requireUuid(professorId, "Professor ID")
+        val result = client.postgrest.rpc(
+            function = "hide_assignment_comment",
+            parameters = buildJsonObject {
+                put("p_comment_id", cleanCommentId)
+                put("p_professor_id", cleanProfessorId)
+            },
+        ).decodeAs<AssignmentComment>()
+        invalidateComments(result.assignmentId)
+    }
+
+    suspend fun unhideAssignmentComment(commentId: String, professorId: String) {
+        val cleanCommentId = requireUuid(commentId, "Comment ID")
+        val cleanProfessorId = requireUuid(professorId, "Professor ID")
+        val result = client.postgrest.rpc(
+            function = "unhide_assignment_comment",
+            parameters = buildJsonObject {
+                put("p_comment_id", cleanCommentId)
+                put("p_professor_id", cleanProfessorId)
+            },
+        ).decodeAs<AssignmentComment>()
+        invalidateComments(result.assignmentId)
+    }
+
     suspend fun deleteClassAssignment(assignmentId: String, professorId: String) {
         val cleanAssignmentId = requireUuid(assignmentId, "Assignment ID")
         val cleanProfessorId = requireUuid(professorId, "Professor ID")

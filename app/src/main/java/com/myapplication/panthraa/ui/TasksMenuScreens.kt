@@ -1122,7 +1122,7 @@ internal fun ProfilePreviewCard(
     onPickImage: () -> Unit,
     onEditProfile: () -> Unit,
 ) {
-    val roleLabel = if (user.role.equals("professor", ignoreCase = true)) "Professor" else "Student"
+    val roleLabel = if (user.role.equals("professor", ignoreCase = true)) "Faculty" else "Student"
     Column(
         modifier = Modifier
             .fillMaxWidth()

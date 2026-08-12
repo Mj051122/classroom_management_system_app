@@ -1292,7 +1292,7 @@ internal fun ProfessorProfileHeader(
                         modifier = Modifier.weight(1f),
                     ) {
                         Text(
-                            text = user.fullName.ifBlank { "Professor" },
+                            text = user.fullName.ifBlank { "Faculty" },
                             color = Color.White,
                             fontWeight = FontWeight.ExtraBold,
                             fontSize = 20.sp,
@@ -1310,7 +1310,7 @@ internal fun ProfessorProfileHeader(
                                     .padding(horizontal = 8.dp, vertical = 3.dp),
                             ) {
                                 Text(
-                                    text = "Professor",
+                                    text = "Faculty",
                                     color = Color.White.copy(alpha = 0.80f),
                                     fontWeight = FontWeight.Bold,
                                     fontSize = 11.sp,
@@ -2419,7 +2419,7 @@ internal fun ProfessorHeroHeader(
                         overflow = TextOverflow.Ellipsis,
                     )
                     Text(
-                        text = user.fullName.ifBlank { "Professor" },
+                        text = user.fullName.ifBlank { "Faculty" },
                         color = Color.White.copy(alpha = 0.72f),
                         fontSize = 12.sp,
                         fontWeight = FontWeight.Bold,
@@ -2427,7 +2427,7 @@ internal fun ProfessorHeroHeader(
                         overflow = TextOverflow.Ellipsis,
                     )
                     Text(
-                        text = listOfNotNull("Professor", user.course?.takeIf { it.isNotBlank() }).joinToString(" - "),
+                        text = listOfNotNull("Faculty", user.course?.takeIf { it.isNotBlank() }).joinToString(" - "),
                         color = Color.White,
                         fontSize = 13.sp,
                         fontWeight = FontWeight.SemiBold,

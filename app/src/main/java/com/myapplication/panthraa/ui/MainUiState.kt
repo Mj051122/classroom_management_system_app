@@ -70,6 +70,7 @@ data class MainUiState(
     val isLoadingAssignmentComments: Boolean = false,
     val isPostingComment: Boolean = false,
     val isDeletingComment: Boolean = false,
+    val isHidingComment: Boolean = false,
     val isScoringSubmission: Boolean = false,
     val isCreatingAssignment: Boolean = false,
     val isUpdatingAssignment: Boolean = false,

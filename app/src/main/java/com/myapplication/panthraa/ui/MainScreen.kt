@@ -600,6 +600,8 @@ fun MainScreen(
                     onRefreshAssignmentComments = viewModel::refreshAssignmentComments,
                     onPostAssignmentComment = viewModel::postAssignmentComment,
                     onDeleteAssignmentComment = viewModel::deleteAssignmentComment,
+                    onHideAssignmentComment = viewModel::hideAssignmentComment,
+                    onUnhideAssignmentComment = viewModel::unhideAssignmentComment,
                     onRecordAttendance = viewModel::recordAttendance,
                     onGradeSubmission = viewModel::gradeAssignmentSubmission,
                     onSubmitAssignment = viewModel::submitAssignment,

@@ -491,7 +491,7 @@ private fun RoleSelectionBanner(role: UserRole) {
     val accent = role.accentColor()
     val label = when (role) {
         UserRole.Student -> "Student access selected"
-        UserRole.Professor -> "Professor access selected"
+        UserRole.Professor -> "Faculty access selected"
     }
     val helper = when (role) {
         UserRole.Student -> "Classes, submissions, and attendance tracking."

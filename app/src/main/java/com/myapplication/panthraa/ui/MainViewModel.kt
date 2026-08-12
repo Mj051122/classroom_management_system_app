@@ -592,6 +592,54 @@ class MainViewModel(
         }
     }
 
+    fun hideAssignmentComment(commentId: String) {
+        if (isOfflineWriteBlocked()) return
+        val user = _uiState.value.currentUser ?: return
+        viewModelScope.launch {
+            _uiState.update { it.copy(isHidingComment = true, message = null) }
+            runCatching {
+                classRepository.hideAssignmentComment(commentId = commentId, professorId = user.id)
+            }.onSuccess {
+                _uiState.update { state ->
+                    state.copy(
+                        assignmentComments = state.assignmentComments.map {
+                            if (it.id == commentId) it.copy(isHidden = true) else it
+                        },
+                        isHidingComment = false,
+                    )
+                }
+            }.onFailure { error ->
+                _uiState.update {
+                    it.copy(isHidingComment = false, message = ClassRepository.readableError(error))
+                }
+            }
+        }
+    }
+
+    fun unhideAssignmentComment(commentId: String) {
+        if (isOfflineWriteBlocked()) return
+        val user = _uiState.value.currentUser ?: return
+        viewModelScope.launch {
+            _uiState.update { it.copy(isHidingComment = true, message = null) }
+            runCatching {
+                classRepository.unhideAssignmentComment(commentId = commentId, professorId = user.id)
+            }.onSuccess {
+                _uiState.update { state ->
+                    state.copy(
+                        assignmentComments = state.assignmentComments.map {
+                            if (it.id == commentId) it.copy(isHidden = false) else it
+                        },
+                        isHidingComment = false,
+                    )
+                }
+            }.onFailure { error ->
+                _uiState.update {
+                    it.copy(isHidingComment = false, message = ClassRepository.readableError(error))
+                }
+            }
+        }
+    }
+
     fun loadProfessorGradeMonitor(user: AppUser? = _uiState.value.currentUser) {
         val targetUser = user?.takeIf { it.role.equals("professor", ignoreCase = true) } ?: return
         if (_uiState.value.connectivityStatus != ConnectivityStatus.Online) {
