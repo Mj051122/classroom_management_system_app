@@ -154,7 +154,7 @@ data class StudentGrade(
     @SerialName("class_id")
     val classId: String = "",
     val title: String = "",
-    val score: Int = 0,
+    val score: Int? = null,
     @SerialName("target_points")
     val targetPoints: Int = 100,
     val category: String = "lecture",
@@ -167,9 +167,9 @@ data class StudentGrade(
     @SerialName("end_time")
     val endTime: String? = null,
     @SerialName("raw_percent")
-    val rawPercent: Double = 0.0,
+    val rawPercent: Double? = null,
     @SerialName("converted_grade")
-    val convertedGrade: Double = 37.5,
+    val convertedGrade: Double? = null,
     @SerialName("submitted_at")
     val submittedAt: String? = null,
     @SerialName("class_name")
@@ -178,4 +178,8 @@ data class StudentGrade(
     val subjectCode: String = "",
     @SerialName("professor_name")
     val professorName: String = "",
+    @SerialName("has_submitted")
+    val hasSubmitted: Boolean = false,
+    @SerialName("submission_text")
+    val submissionText: String? = null,
 )

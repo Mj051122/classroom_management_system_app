@@ -341,6 +341,7 @@ fun HomeScreen(
             onOpenClass = onOpenProfessorClass,
             onOpenUpload = onOpenProfessorUpload,
             onOpenGradeMonitor = { showProfessorGradeMonitor = true },
+            onOpenClassesTab = onOpenClassesTab,
             onLoadJoinRequests = onLoadJoinRequests,
             onRefreshJoinRequests = onRefreshJoinRequests,
             onApproveJoinRequest = onApproveJoinRequest,
@@ -1929,14 +1930,16 @@ internal fun PendingAssignmentsScreen(
             }
         } else if (uiState.pendingAssignments.isEmpty()) {
             item {
-                StudentEmptyCard(
+                PanthraaEmptyState(
+                    icon = Icons.Filled.CheckCircle,
                     title = "No pending assignments",
-                    subtitle = "You're all caught up.",
+                    subtitle = "You're all caught up. New tasks will appear here as soon as your professor posts them.",
                 )
             }
         } else if (filteredAssignments.isEmpty()) {
             item {
-                StudentEmptyCard(
+                PanthraaEmptyState(
+                    icon = Icons.Outlined.SearchOff,
                     title = "No ${selectedFilter.emptyLabel} pending",
                     subtitle = "Try another category.",
                 )
@@ -2212,6 +2215,7 @@ internal fun ProfessorHomeDashboard(
     onOpenClass: (ProfessorClass) -> Unit = {},
     onOpenUpload: (ProfessorClass) -> Unit = {},
     onOpenGradeMonitor: () -> Unit = {},
+    onOpenClassesTab: () -> Unit = {},
     onLoadJoinRequests: (List<String>) -> Unit = {},
     onRefreshJoinRequests: (List<String>) -> Unit = {},
     onApproveJoinRequest: (String, List<String>) -> Unit = { _, _ -> },
@@ -2383,7 +2387,7 @@ internal fun ProfessorHomeDashboard(
             ProfessorDashboardActionGrid(
                 classCount = activeClasses.size,
                 scheduleCount = scheduleCount,
-                onOpenClasses = { onOpenYear(classesTargetYear) },
+                onOpenClasses = { onOpenClassesTab() },
                 onOpenUpload = {
                     if (activeClasses.isEmpty()) {
                         onOpenYear(ProfessorClassYearOptions.first().value)
@@ -5506,6 +5510,7 @@ internal fun StudentGradeDetailsScreen(
     innerPadding: PaddingValues,
     onBack: () -> Unit,
 ) {
+    var selectedGrade by remember { mutableStateOf<StudentGrade?>(null) }
     LazyColumn(
         modifier = Modifier
             .fillMaxSize()
@@ -5546,13 +5551,20 @@ internal fun StudentGradeDetailsScreen(
                 showBreakdown = true,
             )
         }
-        item { GradeCategorySection("Lecture", summary.lectureGrades) }
-        item { GradeCategorySection("Laboratory", summary.laboratoryGrades) }
+        item { GradeCategorySection("Lecture", summary.lectureGrades, onGradeClick = { selectedGrade = it }) }
+        item { GradeCategorySection("Laboratory", summary.laboratoryGrades, onGradeClick = { selectedGrade = it }) }
+    }
+    selectedGrade?.let { grade ->
+        SubmissionDetailDialog(grade = grade, onDismiss = { selectedGrade = null })
     }
 }
 
 @Composable
-internal fun GradeCategorySection(title: String, grades: List<StudentGrade>) {
+internal fun GradeCategorySection(
+    title: String,
+    grades: List<StudentGrade>,
+    onGradeClick: (StudentGrade) -> Unit,
+) {
     Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
         Row(
             modifier = Modifier.fillMaxWidth(),
@@ -5576,7 +5588,7 @@ internal fun GradeCategorySection(title: String, grades: List<StudentGrade>) {
             GradeCategoryEmptyCard(title = title)
         } else {
             grades.forEach { grade ->
-                GradeBreakdownCard(grade = grade)
+                GradeBreakdownCard(grade = grade, onClick = { onGradeClick(grade) })
             }
         }
     }
@@ -5602,11 +5614,14 @@ internal fun GradeCategoryEmptyCard(title: String) {
 }
 
 @Composable
-internal fun GradeBreakdownCard(grade: StudentGrade) {
-    val tone = gradeTone(grade.convertedGrade)
+internal fun GradeBreakdownCard(grade: StudentGrade, onClick: () -> Unit) {
+    val scored = grade.score != null
+    val tone = grade.convertedGrade?.let { gradeTone(it) } ?: Color(0xFF64748B)
     val target = grade.targetPoints.coerceAtLeast(1)
     Card(
-        modifier = Modifier.fillMaxWidth(),
+        modifier = Modifier
+            .fillMaxWidth()
+            .clickable(onClick = onClick),
         colors = CardDefaults.cardColors(containerColor = Color.White),
         border = BorderStroke(1.dp, tone.copy(alpha = 0.18f)),
         shape = RoundedCornerShape(16.dp),
@@ -5629,14 +5644,22 @@ internal fun GradeBreakdownCard(grade: StudentGrade) {
                     overflow = TextOverflow.Ellipsis,
                 )
                 Text(
-                    text = "${grade.score}/$target points",
+                    text = if (scored) "${grade.score}/$target points" else "--/$target points",
                     color = Color(0xFF64748B),
                     fontWeight = FontWeight.SemiBold,
                     fontSize = 12.sp,
                 )
+                if (!scored) {
+                    Text(
+                        text = if (grade.hasSubmitted) "Submitted - waiting for grade" else "Not yet taken",
+                        color = Color(0xFF0369A1),
+                        fontWeight = FontWeight.SemiBold,
+                        fontSize = 10.sp,
+                    )
+                }
             }
             Text(
-                text = formatGradeNumber(grade.convertedGrade),
+                text = if (scored) formatGradeNumber(grade.convertedGrade ?: 0.0) else "--",
                 color = tone,
                 fontWeight = FontWeight.ExtraBold,
                 fontSize = 20.sp,
@@ -5646,14 +5669,139 @@ internal fun GradeBreakdownCard(grade: StudentGrade) {
 }
 
 @Composable
+internal fun SubmissionDetailDialog(
+    grade: StudentGrade,
+    onDismiss: () -> Unit,
+) {
+    val scored = grade.score != null
+    val tone = grade.convertedGrade?.let { gradeTone(it) } ?: Color(0xFF64748B)
+    val target = grade.targetPoints.coerceAtLeast(1)
+    val submittedDisplay = grade.submittedAt
+        ?.let { parseServerDateTimeInPhilippines(it) }
+        ?.format(DateTimeFormatter.ofPattern("MMM d, yyyy h:mm a", Locale.getDefault()))
+    val submissionText = grade.submissionText?.trim()?.takeIf { it.isNotBlank() }
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        shape = RoundedCornerShape(24.dp),
+        containerColor = DialogSurface,
+        title = {
+            Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                Text(
+                    text = grade.title.ifBlank { "Task details" },
+                    color = Color(0xFF0F172A),
+                    fontWeight = FontWeight.ExtraBold,
+                    fontSize = 17.sp,
+                )
+                Text(
+                    text = listOfNotNull(
+                        grade.className.ifBlank { null },
+                        grade.subjectCode.ifBlank { null },
+                    ).joinToString(" "),
+                    color = Color(0xFF64748B),
+                    fontWeight = FontWeight.SemiBold,
+                    fontSize = 12.sp,
+                )
+            }
+        },
+        text = {
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .verticalScroll(rememberScrollState()),
+                verticalArrangement = Arrangement.spacedBy(10.dp),
+            ) {
+                Text(
+                    text = when {
+                        !scored && !grade.hasSubmitted -> "Not yet taken - counts as 0"
+                        !scored -> "Submitted - not graded yet"
+                        else -> "${assignmentCategoryLabel(grade.category)} graded"
+                    },
+                    color = if (scored) tone else Color(0xFF0369A1),
+                    fontWeight = FontWeight.Bold,
+                    fontSize = 12.sp,
+                )
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    GradeMetricPill(
+                        label = "Score",
+                        value = if (scored) "${grade.score}/$target" else "--/$target",
+                        background = Color(0xFFF1F5F9),
+                        content = Color(0xFF0F172A),
+                        modifier = Modifier.weight(1f),
+                    )
+                    GradeMetricPill(
+                        label = "Final grade",
+                        value = if (scored) formatGradeNumber(grade.convertedGrade ?: 0.0) else "--",
+                        background = Color(0xFFF1F5F9),
+                        content = tone,
+                        modifier = Modifier.weight(1f),
+                    )
+                    GradeMetricPill(
+                        label = "Type",
+                        value = assignmentCategoryLabel(grade.category),
+                        background = Color(0xFFF1F5F9),
+                        content = Color(0xFF0F172A),
+                        modifier = Modifier.weight(1f),
+                    )
+                }
+                if (submittedDisplay != null) {
+                    Text(
+                        text = "Submitted $submittedDisplay",
+                        color = Color(0xFF64748B),
+                        fontWeight = FontWeight.SemiBold,
+                        fontSize = 11.sp,
+                    )
+                }
+                if (submissionText != null) {
+                    Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                        Text(
+                            text = "Your submission",
+                            color = Color(0xFF0F172A),
+                            fontWeight = FontWeight.ExtraBold,
+                            fontSize = 13.sp,
+                        )
+                        Box(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .clip(RoundedCornerShape(12.dp))
+                                .background(Color(0xFFF8FAFC))
+                                .border(1.dp, Color(0xFFE2E8F0), RoundedCornerShape(12.dp))
+                                .padding(12.dp),
+                        ) {
+                            Text(
+                                text = submissionText,
+                                color = Color(0xFF334155),
+                                fontWeight = FontWeight.Medium,
+                                fontSize = 13.sp,
+                            )
+                        }
+                    }
+                } else if (!grade.hasSubmitted) {
+                    Text(
+                        text = "You have not submitted anything for this task yet.",
+                        color = Color(0xFF64748B),
+                        fontWeight = FontWeight.SemiBold,
+                        fontSize = 12.sp,
+                    )
+                }
+            }
+        },
+        confirmButton = {},
+        dismissButton = {
+            DialogCancelButton(text = "Close", onClick = onDismiss)
+        },
+    )
+}
+
+@Composable
 internal fun GradeMetricPill(
     label: String,
     value: String,
     background: Color,
     content: Color,
+    modifier: Modifier = Modifier,
 ) {
     Column(
-        modifier = Modifier
+        modifier = modifier
             .clip(RoundedCornerShape(8.dp))
             .background(background)
             .padding(horizontal = 10.dp, vertical = 7.dp),
@@ -5828,9 +5976,9 @@ internal fun buildStudentSubjectGradeSummaries(grades: List<StudentGrade>): List
                 className = subjectGrades.firstOrNull()?.className.orEmpty(),
                 subjectCode = subjectGrades.firstOrNull()?.subjectCode.orEmpty(),
                 professorName = subjectGrades.firstOrNull()?.professorName.orEmpty(),
-                grades = subjectGrades.sortedByDescending { it.submittedAt.orEmpty() },
-                lectureGrades = lectureGrades.sortedByDescending { it.submittedAt.orEmpty() },
-                laboratoryGrades = laboratoryGrades.sortedByDescending { it.submittedAt.orEmpty() },
+                grades = subjectGrades.sortedGradeEntries(),
+                lectureGrades = lectureGrades.sortedGradeEntries(),
+                laboratoryGrades = laboratoryGrades.sortedGradeEntries(),
                 lecturePercent = computation.lecturePercent,
                 laboratoryPercent = computation.laboratoryPercent,
                 rawGrade = computation.rawGrade,
@@ -5840,6 +5988,13 @@ internal fun buildStudentSubjectGradeSummaries(grades: List<StudentGrade>): List
             )
         }
         .sortedBy { it.subjectCode.ifBlank { it.className } }
+}
+
+internal fun List<StudentGrade>.sortedGradeEntries(): List<StudentGrade> {
+    return sortedWith(
+        compareByDescending<StudentGrade> { it.score == null }
+            .thenByDescending { it.submittedAt.orEmpty() }
+    )
 }
 
 internal fun buildOverallGradeSummary(grades: List<StudentGrade>): GradeComputationSummary {
@@ -5858,7 +6013,7 @@ internal fun computeWeightedGrade(grades: List<StudentGrade>): GradeComputationS
         laboratoryPercent = laboratoryPercent,
         rawGrade = rawGrade,
         finalGrade = finalGrade,
-        earnedPoints = grades.sumOf { it.score },
+        earnedPoints = grades.sumOf { it.score ?: 0 },
         targetPoints = grades.sumOf { it.targetPoints.coerceAtLeast(1) },
     )
 }
@@ -5866,7 +6021,7 @@ internal fun computeWeightedGrade(grades: List<StudentGrade>): GradeComputationS
 internal fun categoryPercent(grades: List<StudentGrade>): Double {
     val target = grades.sumOf { it.targetPoints.coerceAtLeast(1) }
     if (target <= 0) return 0.0
-    val earned = grades.sumOf { it.score }
+    val earned = grades.sumOf { it.score ?: 0 }
     return pointsToPercent(earned, target)
 }
 
