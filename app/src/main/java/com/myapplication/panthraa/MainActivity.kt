@@ -139,12 +139,6 @@ private fun PanthraaApp(openScheduleSignal: Int = 0) {
         viewModel.onConnectivityChanged(networkStatus)
     }
 
-    LaunchedEffect(uiState.shouldShowAuthOnLaunch) {
-        if (uiState.shouldShowAuthOnLaunch) {
-            showAuth = true
-        }
-    }
-
     when {
         uiState.isRestoringSession -> {
             Box(

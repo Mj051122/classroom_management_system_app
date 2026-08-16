@@ -23,3 +23,7 @@ wholeapp.md
 AGENTS.md
 opencode.json
 task.md
+.agents/
+.claude/
+skills-lock.json
+panthraa-*.md

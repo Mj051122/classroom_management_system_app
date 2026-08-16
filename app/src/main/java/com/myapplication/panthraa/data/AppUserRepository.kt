@@ -201,8 +201,8 @@ class AppUserRepository(
                 message.contains("ID number", ignoreCase = true) -> "ID number is required."
                 message.contains("Class code", ignoreCase = true) -> "Class code is required."
                 message.contains("Subject name", ignoreCase = true) -> "Subject name is required."
-                message.isNotBlank() -> "Debug error: $message"
-                else -> "Debug error: ${throwable::class.simpleName ?: "Unknown error"}"
+                message.isNotBlank() -> "Something went wrong. Please try again."
+                else -> "Something went wrong. Please try again."
             }
         }
 

@@ -161,10 +161,6 @@ import com.airbnb.lottie.compose.LottieCompositionSpec
 import com.airbnb.lottie.compose.LottieConstants
 import com.airbnb.lottie.compose.animateLottieCompositionAsState
 import com.airbnb.lottie.compose.rememberLottieComposition
-import com.google.zxing.BarcodeFormat
-import com.google.zxing.qrcode.QRCodeWriter
-import com.journeyapps.barcodescanner.ScanContract
-import com.journeyapps.barcodescanner.ScanOptions
 import kotlinx.coroutines.delay
 import kotlin.math.round
 import kotlinx.coroutines.Dispatchers
@@ -1126,7 +1122,7 @@ internal fun ProfilePreviewCard(
     onPickImage: () -> Unit,
     onEditProfile: () -> Unit,
 ) {
-    val roleLabel = if (user.role.equals("professor", ignoreCase = true)) "Professor" else "Student"
+    val roleLabel = if (user.role.equals("professor", ignoreCase = true)) "Faculty" else "Student"
     Column(
         modifier = Modifier
             .fillMaxWidth()

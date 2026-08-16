@@ -17,6 +17,7 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.safeDrawing
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.rememberScrollState
@@ -25,6 +26,8 @@ import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Check
+import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Visibility
 import androidx.compose.material.icons.filled.VisibilityOff
 import androidx.compose.material3.Button
@@ -320,7 +323,7 @@ private fun AuthCard(
                         Spacer(modifier = Modifier.height(14.dp))
                         EmailField(uiState.email, onEmailChanged, fieldsEnabled)
                         Spacer(modifier = Modifier.height(14.dp))
-                        PasswordField(uiState.password, onPasswordChanged, "Password", fieldsEnabled)
+                        PasswordField(uiState.password, onPasswordChanged, "Password", fieldsEnabled, showStrengthMeter = true)
                         Spacer(modifier = Modifier.height(14.dp))
                         PasswordField(uiState.confirmPassword, onConfirmPasswordChanged, "Confirm Password", fieldsEnabled)
                     }
@@ -331,7 +334,7 @@ private fun AuthCard(
                     EmailAuthStage.Form -> EmailField(uiState.email, onEmailChanged, fieldsEnabled)
                     EmailAuthStage.VerifyOtp -> EmailOtpField(uiState.otp, onOtpChanged, fieldsEnabled)
                     EmailAuthStage.SetPassword -> {
-                        PasswordField(uiState.password, onPasswordChanged, "New Password", fieldsEnabled)
+                        PasswordField(uiState.password, onPasswordChanged, "New Password", fieldsEnabled, showStrengthMeter = true)
                         Spacer(modifier = Modifier.height(14.dp))
                         PasswordField(uiState.confirmPassword, onConfirmPasswordChanged, "Confirm Password", fieldsEnabled)
                     }
@@ -420,17 +423,114 @@ private fun PasswordField(
     onValueChange: (String) -> Unit,
     label: String,
     enabled: Boolean,
+    showStrengthMeter: Boolean = false,
 ) {
-    PanthraTextField(
-        value = value,
-        onValueChange = onValueChange,
-        label = label,
-        placeholder = "password0322",
-        enabled = enabled,
-        keyboardType = KeyboardType.Password,
-        visualTransformation = PasswordVisualTransformation(),
-        passwordVisibilityToggle = true,
-    )
+    Column(modifier = Modifier.fillMaxWidth()) {
+        PanthraTextField(
+            value = value,
+            onValueChange = onValueChange,
+            label = label,
+            placeholder = "password0322",
+            enabled = enabled,
+            keyboardType = KeyboardType.Password,
+            visualTransformation = PasswordVisualTransformation(),
+            passwordVisibilityToggle = true,
+        )
+        if (showStrengthMeter && value.isNotEmpty()) {
+            PasswordStrengthMeter(value)
+        }
+    }
+}
+
+private enum class PasswordStrength(val label: String, val color: Color, val segments: Int) {
+    Weak("Weak", Color(0xFFDC2626), 1),
+    Fair("Fair", Color(0xFFF59E0B), 2),
+    Good("Good", Color(0xFF84CC16), 3),
+    Strong("Strong", Color(0xFF16A34A), 4),
+}
+
+private fun passwordStrength(password: String): PasswordStrength {
+    var score = 0
+    if (password.length >= 8) score++
+    if (password.any(Char::isLowerCase)) score++
+    if (password.any(Char::isUpperCase)) score++
+    if (password.any(Char::isDigit)) score++
+    if (password.any { !it.isLetterOrDigit() }) score++
+    return when {
+        score >= 5 -> PasswordStrength.Strong
+        score >= 4 -> PasswordStrength.Good
+        score >= 3 -> PasswordStrength.Fair
+        else -> PasswordStrength.Weak
+    }
+}
+
+@Composable
+private fun PasswordStrengthMeter(password: String) {
+    val strength = passwordStrength(password)
+    val trackColor = Color(0xFFE2E8F0)
+    val metColor = Color(0xFF16A34A)
+    val unmetColor = Color(0xFF94A3B8)
+    Column(modifier = Modifier.fillMaxWidth().padding(top = 8.dp)) {
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(6.dp),
+        ) {
+            repeat(4) { index ->
+                Box(
+                    modifier = Modifier
+                        .weight(1f)
+                        .height(4.dp)
+                        .clip(RoundedCornerShape(2.dp))
+                        .background(if (index < strength.segments) strength.color else trackColor),
+                )
+            }
+        }
+        Spacer(modifier = Modifier.height(4.dp))
+        Text(
+            text = "Password strength: ${strength.label}",
+            color = strength.color,
+            style = MaterialTheme.typography.labelMedium,
+        )
+        Spacer(modifier = Modifier.height(8.dp))
+        RequirementRow(
+            met = password.length >= 8,
+            text = "At least 8 characters",
+            metColor = metColor,
+            unmetColor = unmetColor,
+        )
+        Spacer(modifier = Modifier.height(4.dp))
+        RequirementRow(
+            met = password.any(Char::isLetter),
+            text = "At least one letter",
+            metColor = metColor,
+            unmetColor = unmetColor,
+        )
+        Spacer(modifier = Modifier.height(4.dp))
+        RequirementRow(
+            met = password.any(Char::isDigit),
+            text = "At least one number",
+            metColor = metColor,
+            unmetColor = unmetColor,
+        )
+    }
+}
+
+@Composable
+private fun RequirementRow(met: Boolean, text: String, metColor: Color, unmetColor: Color) {
+    Row(verticalAlignment = Alignment.CenterVertically) {
+        Icon(
+            imageVector = if (met) Icons.Filled.Check else Icons.Filled.Close,
+            contentDescription = if (met) "Requirement met" else "Requirement not met",
+            tint = if (met) metColor else unmetColor,
+            modifier = Modifier.size(14.dp),
+        )
+        Spacer(modifier = Modifier.width(6.dp))
+        Text(
+            text = text,
+            color = if (met) SlateText else unmetColor,
+            style = MaterialTheme.typography.labelMedium,
+        )
+    }
 }
 
 @Composable
@@ -491,11 +591,11 @@ private fun RoleSelectionBanner(role: UserRole) {
     val accent = role.accentColor()
     val label = when (role) {
         UserRole.Student -> "Student access selected"
-        UserRole.Professor -> "Professor access selected"
+        UserRole.Professor -> "Faculty access selected"
     }
     val helper = when (role) {
-        UserRole.Student -> "Classes, submissions, QR, and attendance viewing."
-        UserRole.Professor -> "Class management, activities, attendance scanning."
+        UserRole.Student -> "Classes, submissions, and attendance tracking."
+        UserRole.Professor -> "Class management, activities, and attendance recording."
     }
 
     Row(

@@ -131,7 +131,7 @@ internal object ScheduleWidgetRepository {
         }
         val firstName = user.fullName.substringBefore(" ").trim()
         return ScheduleWidgetState.Ready(
-            roleLabel = if (isProfessor) "Professor" else "Student",
+            roleLabel = if (isProfessor) "Faculty" else "Student",
             userName = firstName,
             dayLabel = today.dayLabel,
             classCount = classCount,
@@ -231,7 +231,7 @@ private fun PanthraaScheduleWidgetContent(state: ScheduleWidgetState) {
 
 @Composable
 private fun ColumnScope.SingleCellWidget(state: ScheduleWidgetState.Ready) {
-    val accent = if (state.roleLabel == "Professor") ProfessorAccent else PanthraaBlue
+    val accent = if (state.roleLabel == "Faculty") ProfessorAccent else PanthraaBlue
     val entry = state.current ?: state.next
     if (entry == null) {
         Column(
@@ -280,7 +280,7 @@ private fun ColumnScope.SingleCellWidget(state: ScheduleWidgetState.Ready) {
 
 @Composable
 private fun ColumnScope.DoubleCellWidget(state: ScheduleWidgetState.Ready) {
-    val accent = if (state.roleLabel == "Professor") ProfessorAccent else PanthraaBlue
+    val accent = if (state.roleLabel == "Faculty") ProfessorAccent else PanthraaBlue
     val first = state.current ?: state.next
     val second = if (state.current != null) state.next else null
 
@@ -309,7 +309,7 @@ private fun ColumnScope.DoubleCellWidget(state: ScheduleWidgetState.Ready) {
 
 @Composable
 private fun ColumnScope.TripleCellWidget(state: ScheduleWidgetState.Ready) {
-    val accent = if (state.roleLabel == "Professor") ProfessorAccent else PanthraaBlue
+    val accent = if (state.roleLabel == "Faculty") ProfessorAccent else PanthraaBlue
     val nowTime = LocalTime.now(PhilippineZoneId)
 
     if (state.entries.isEmpty()) {
@@ -351,7 +351,7 @@ private fun ColumnScope.TripleCellWidget(state: ScheduleWidgetState.Ready) {
 
 @Composable
 private fun ColumnScope.FullScheduleWidget(state: ScheduleWidgetState.Ready) {
-    val accent = if (state.roleLabel == "Professor") ProfessorAccent else PanthraaBlue
+    val accent = if (state.roleLabel == "Faculty") ProfessorAccent else PanthraaBlue
     Row(modifier = GlanceModifier.fillMaxWidth()) {
         Text(
             text = "${state.userName}'s ${state.dayLabel.titleCaseDay()}",

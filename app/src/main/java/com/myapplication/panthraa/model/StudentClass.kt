@@ -64,8 +64,8 @@ data class StudentClass(
         get() = joinCode.ifBlank { classCode }
 
     val displayProfessorName: String
-        get() = professorName.ifBlank { "Professor" }
+        get() = professorName.ifBlank { "Faculty" }
 
     val displayProfessorRole: String
-        get() = professorPosition.ifBlank { "Professor" }
+        get() = professorPosition.ifBlank { "Faculty" }
 }

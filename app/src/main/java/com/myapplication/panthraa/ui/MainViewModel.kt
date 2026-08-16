@@ -13,6 +13,7 @@ import com.myapplication.panthraa.data.TaskRepository
 import com.myapplication.panthraa.data.AnnouncementRepository
 import com.myapplication.panthraa.data.UploadNotificationHelper
 import com.myapplication.panthraa.model.AppUser
+import com.myapplication.panthraa.model.AssignmentComment
 import com.myapplication.panthraa.model.ConnectivityStatus
 import com.myapplication.panthraa.model.PendingAssignment
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -475,6 +476,170 @@ class MainViewModel(
         }
     }
 
+    fun loadAssignmentComments(assignmentId: String) {
+        val user = _uiState.value.currentUser ?: return
+        if (_uiState.value.commentsAssignmentId == assignmentId &&
+            _uiState.value.assignmentComments.isNotEmpty()
+        ) {
+            return
+        }
+        if (isOfflineWriteBlocked(readOnlyMessage = "Internet required to load comments.")) {
+            _uiState.update { it.copy(isLoadingAssignmentComments = false) }
+            return
+        }
+        viewModelScope.launch {
+            _uiState.update { it.copy(isLoadingAssignmentComments = true, message = null) }
+            runCatching { classRepository.getAssignmentComments(assignmentId, user.id) }
+                .onSuccess { comments ->
+                    _uiState.update {
+                        it.copy(
+                            assignmentComments = comments,
+                            commentsAssignmentId = assignmentId,
+                            isLoadingAssignmentComments = false,
+                        )
+                    }
+                    cacheImageUrls(comments.mapNotNull { it.authorPhotoUrl })
+                }
+                .onFailure { error ->
+                    if (handleConnectivityFailure(error)) return@onFailure
+                    _uiState.update {
+                        it.copy(
+                            isLoadingAssignmentComments = false,
+                            message = ClassRepository.readableError(error),
+                        )
+                    }
+                }
+        }
+    }
+
+    fun refreshAssignmentComments(assignmentId: String) {
+        val user = _uiState.value.currentUser ?: return
+        if (isOfflineWriteBlocked(readOnlyMessage = "Internet required to refresh comments.")) {
+            return
+        }
+        viewModelScope.launch {
+            _uiState.update { it.copy(message = null) }
+            runCatching {
+                classRepository.getAssignmentComments(assignmentId, user.id, CachePolicy.FORCE_REFRESH)
+            }
+                .onSuccess { comments ->
+                    _uiState.update {
+                        it.copy(
+                            assignmentComments = comments,
+                            commentsAssignmentId = assignmentId,
+                            isLoadingAssignmentComments = false,
+                        )
+                    }
+                    cacheImageUrls(comments.mapNotNull { it.authorPhotoUrl })
+                }
+                .onFailure { error ->
+                    if (handleConnectivityFailure(error)) return@onFailure
+                    _uiState.update {
+                        it.copy(message = ClassRepository.readableError(error))
+                    }
+                }
+        }
+    }
+
+    fun postAssignmentComment(assignmentId: String, content: String, visibility: String) {
+        if (isOfflineWriteBlocked()) return
+        val user = _uiState.value.currentUser ?: return
+        viewModelScope.launch {
+            _uiState.update { it.copy(isPostingComment = true, message = null) }
+            runCatching {
+                classRepository.createAssignmentComment(
+                    assignmentId = assignmentId,
+                    authorId = user.id,
+                    content = content,
+                    visibility = visibility,
+                )
+            }.onSuccess { comment ->
+                _uiState.update { state ->
+                    state.copy(
+                        assignmentComments = (state.assignmentComments + comment)
+                            .sortedBy { it.createdAt.orEmpty() },
+                        commentsAssignmentId = assignmentId,
+                        isPostingComment = false,
+                    )
+                }
+            }.onFailure { error ->
+                _uiState.update {
+                    it.copy(isPostingComment = false, message = ClassRepository.readableError(error))
+                }
+            }
+        }
+    }
+
+    fun deleteAssignmentComment(commentId: String) {
+        if (isOfflineWriteBlocked()) return
+        val user = _uiState.value.currentUser ?: return
+        viewModelScope.launch {
+            _uiState.update { it.copy(isDeletingComment = true, message = null) }
+            runCatching {
+                classRepository.deleteAssignmentComment(commentId = commentId, authorId = user.id)
+            }.onSuccess {
+                _uiState.update { state ->
+                    state.copy(
+                        assignmentComments = state.assignmentComments.filterNot { it.id == commentId },
+                        isDeletingComment = false,
+                    )
+                }
+            }.onFailure { error ->
+                _uiState.update {
+                    it.copy(isDeletingComment = false, message = ClassRepository.readableError(error))
+                }
+            }
+        }
+    }
+
+    fun hideAssignmentComment(commentId: String) {
+        if (isOfflineWriteBlocked()) return
+        val user = _uiState.value.currentUser ?: return
+        viewModelScope.launch {
+            _uiState.update { it.copy(isHidingComment = true, message = null) }
+            runCatching {
+                classRepository.hideAssignmentComment(commentId = commentId, professorId = user.id)
+            }.onSuccess {
+                _uiState.update { state ->
+                    state.copy(
+                        assignmentComments = state.assignmentComments.map {
+                            if (it.id == commentId) it.copy(isHidden = true) else it
+                        },
+                        isHidingComment = false,
+                    )
+                }
+            }.onFailure { error ->
+                _uiState.update {
+                    it.copy(isHidingComment = false, message = ClassRepository.readableError(error))
+                }
+            }
+        }
+    }
+
+    fun unhideAssignmentComment(commentId: String) {
+        if (isOfflineWriteBlocked()) return
+        val user = _uiState.value.currentUser ?: return
+        viewModelScope.launch {
+            _uiState.update { it.copy(isHidingComment = true, message = null) }
+            runCatching {
+                classRepository.unhideAssignmentComment(commentId = commentId, professorId = user.id)
+            }.onSuccess {
+                _uiState.update { state ->
+                    state.copy(
+                        assignmentComments = state.assignmentComments.map {
+                            if (it.id == commentId) it.copy(isHidden = false) else it
+                        },
+                        isHidingComment = false,
+                    )
+                }
+            }.onFailure { error ->
+                _uiState.update {
+                    it.copy(isHidingComment = false, message = ClassRepository.readableError(error))
+                }
+            }
+        }
+    }
+
     fun loadProfessorGradeMonitor(user: AppUser? = _uiState.value.currentUser) {
         val targetUser = user?.takeIf { it.role.equals("professor", ignoreCase = true) } ?: return
         if (_uiState.value.connectivityStatus != ConnectivityStatus.Online) {
@@ -625,7 +790,7 @@ class MainViewModel(
         }
     }
 
-    fun recordAttendanceByQr(assignmentId: String, scannedIdNumber: String) {
+    fun recordAttendance(assignmentId: String, studentIdNumber: String) {
         val professor = _uiState.value.currentUser ?: return
         if (isOfflineWriteBlocked()) return
         viewModelScope.launch {
@@ -634,7 +799,7 @@ class MainViewModel(
                 classRepository.recordAssignmentAttendanceByIdNumber(
                     assignmentId = assignmentId,
                     professorId = professor.id,
-                    idNumber = scannedIdNumber,
+                    idNumber = studentIdNumber,
                 )
             }.onSuccess { result ->
                 _uiState.update { state ->
@@ -791,6 +956,7 @@ class MainViewModel(
         assignmentType: String = "task",
         submissionFormat: String = "pdf",
         requiresFile: Boolean = true,
+        allowComments: Boolean = true,
         fileUri: Uri? = null,
     ) {
         if (isOfflineWriteBlocked()) return
@@ -816,6 +982,7 @@ class MainViewModel(
                     assignmentType = assignmentType,
                     submissionFormat = submissionFormat,
                     requiresFile = requiresFile,
+                    allowComments = allowComments,
                     fileUrl = fileUrl,
                 )
             }.onSuccess { assignment ->
@@ -867,6 +1034,7 @@ class MainViewModel(
         assignmentType: String = "task",
         submissionFormat: String = "pdf",
         requiresFile: Boolean = true,
+        allowComments: Boolean = true,
         fileUri: Uri? = null,
     ) {
         if (isOfflineWriteBlocked()) return
@@ -894,6 +1062,7 @@ class MainViewModel(
                     assignmentType = assignmentType,
                     submissionFormat = submissionFormat,
                     requiresFile = requiresFile,
+                    allowComments = allowComments,
                     fileUrl = fileUrl,
                 )
             }.onSuccess { updatedAssignment ->
@@ -1306,6 +1475,52 @@ class MainViewModel(
                         it.copy(isCreatingClass = false, message = message)
                     }
                 }
+        }
+    }
+
+    fun updateProfessorClass(
+        classId: String,
+        className: String,
+        subjectCode: String,
+        section: String,
+        track: String,
+    ) {
+        if (isOfflineWriteBlocked()) return
+        val user = _uiState.value.currentUser ?: return
+        if (!user.role.equals("professor", ignoreCase = true)) return
+
+        viewModelScope.launch {
+            _uiState.update { it.copy(isUpdatingClass = true, message = null) }
+            runCatching {
+                classRepository.updateProfessorClass(
+                    professorId = user.id,
+                    classId = classId,
+                    className = className,
+                    subjectCode = subjectCode,
+                    section = section,
+                    track = track,
+                )
+            }.onSuccess { updatedClass ->
+                _uiState.update { state ->
+                    state.copy(
+                        professorClasses = state.professorClasses.map { classItem ->
+                            if (classItem.id == updatedClass.id) updatedClass else classItem
+                        },
+                        isUpdatingClass = false,
+                        message = "Subject updated.",
+                    )
+                }
+                offlineCacheStore?.saveClassSnapshot(
+                    user = user,
+                    studentClasses = _uiState.value.studentClasses,
+                    professorClasses = _uiState.value.professorClasses,
+                    assignmentStatuses = _uiState.value.assignmentStatuses,
+                )
+            }.onFailure { error ->
+                _uiState.update {
+                    it.copy(isUpdatingClass = false, message = ClassRepository.readableError(error))
+                }
+            }
         }
     }
 

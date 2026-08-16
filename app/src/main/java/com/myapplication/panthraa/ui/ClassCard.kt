@@ -217,14 +217,14 @@ fun StudentClassCard(
                         verticalArrangement = Arrangement.spacedBy(1.dp),
                     ) {
                         Text(
-                            text = classItem.displayProfessorName.ifBlank { "Professor" },
+                            text = classItem.displayProfessorName.ifBlank { "Faculty" },
                             color = Color.White,
                             fontWeight = FontWeight.Bold,
                             maxLines = 1,
                             overflow = TextOverflow.Ellipsis,
                         )
                         Text(
-                            text = "Professor",
+                            text = "Faculty",
                             color = Color.White.copy(alpha = 0.72f),
                             style = MaterialTheme.typography.bodySmall,
                         )
@@ -318,7 +318,7 @@ fun ClassCardPreview(
         themeColor = themeColor,
         professorName = professorName,
         professorPhotoUrl = professorPhotoUrl,
-        professorRole = "Professor",
+        professorRole = "Faculty",
         studentCount = studentCount,
         progressPercentage = progressPercentage,
         completedAssignments = 0,
@@ -381,7 +381,7 @@ fun ProfessorClassCard(
         themeColor = classItem.themeColor,
         professorName = classItem.professorName,
         professorPhotoUrl = classItem.professorPhotoUrl,
-        professorRole = "Professor",
+        professorRole = "Faculty",
         studentCount = totalStudents,
         progressPercentage = 0,
         completedAssignments = 0,
@@ -555,14 +555,14 @@ fun ClassCardContent(
                             .padding(start = 10.dp),
                     ) {
                         Text(
-                            text = professorName.ifBlank { "Professor" },
+                            text = professorName.ifBlank { "Faculty" },
                             color = contentColor,
                             fontWeight = FontWeight.Bold,
                             maxLines = 1,
                             overflow = TextOverflow.Ellipsis,
                         )
                         Text(
-                            text = professorRole.ifBlank { "Professor" },
+                            text = professorRole.ifBlank { "Faculty" },
                             color = contentColor.copy(alpha = 0.78f),
                             style = MaterialTheme.typography.bodySmall,
                             maxLines = 1,

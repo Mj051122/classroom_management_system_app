@@ -4,6 +4,7 @@ import android.content.Context
 import android.net.Uri
 import android.provider.OpenableColumns
 import android.util.Log
+import com.myapplication.panthraa.model.AssignmentComment
 import com.myapplication.panthraa.model.AssignmentStatus
 import com.myapplication.panthraa.model.AssignmentSubmission
 import com.myapplication.panthraa.model.AttendanceStudent
@@ -231,6 +232,7 @@ class ClassRepository(
         assignmentType: String = "task",
         submissionFormat: String = "pdf",
         requiresFile: Boolean = true,
+        allowComments: Boolean = true,
         fileUrl: String? = null,
     ): ClassAssignment {
         val cleanClassId = requireUuid(classId, "Class ID")
@@ -254,6 +256,7 @@ class ClassRepository(
                 put("p_assignment_type", assignmentType.toBackendAssignmentType())
                 put("p_submission_format", submissionFormat.toSubmissionFormat())
                 put("p_requires_file", requiresFile)
+                put("p_allow_comments", allowComments)
                 if (startDate != null) put("p_start_date", startDate)
                 if (endDate != null) put("p_end_date", endDate)
                 if (startTime != null) put("p_start_time", startTime)
@@ -279,6 +282,7 @@ class ClassRepository(
         assignmentType: String = "task",
         submissionFormat: String = "pdf",
         requiresFile: Boolean = true,
+        allowComments: Boolean = true,
         fileUrl: String? = null,
     ): ClassAssignment {
         val cleanAssignmentId = requireUuid(assignmentId, "Assignment ID")
@@ -302,6 +306,7 @@ class ClassRepository(
                 put("p_assignment_type", assignmentType.toBackendAssignmentType())
                 put("p_submission_format", submissionFormat.toSubmissionFormat())
                 put("p_requires_file", requiresFile)
+                put("p_allow_comments", allowComments)
                 if (startDate != null) put("p_start_date", startDate)
                 if (endDate != null) put("p_end_date", endDate)
                 if (startTime != null) put("p_start_time", startTime)
@@ -392,6 +397,93 @@ class ClassRepository(
         ).decodeAs<AssignmentSubmission>()
     }
 
+    suspend fun getAssignmentComments(
+        assignmentId: String,
+        viewerId: String,
+        cachePolicy: CachePolicy = CachePolicy.USE_FRESH,
+    ): List<AssignmentComment> {
+        val cleanAssignmentId = requireUuid(assignmentId, "Assignment ID")
+        val cleanViewerId = requireUuid(viewerId, "Viewer ID")
+        return readGuard.read(
+            key = "comments:v=$CACHE_SCHEMA_VERSION:assignment=$cleanAssignmentId:viewer=$cleanViewerId",
+            groups = setOf(commentsGroup(cleanAssignmentId)),
+            ttlMillis = THIRTY_SECONDS_MILLIS,
+            policy = cachePolicy,
+        ) {
+            client.postgrest.rpc(
+                function = "get_assignment_comments",
+                parameters = buildJsonObject {
+                    put("p_assignment_id", cleanAssignmentId)
+                    put("p_viewer_id", cleanViewerId)
+                },
+            ).decodeList<AssignmentComment>()
+        }
+    }
+
+    suspend fun createAssignmentComment(
+        assignmentId: String,
+        authorId: String,
+        content: String,
+        visibility: String,
+    ): AssignmentComment {
+        val cleanAssignmentId = requireUuid(assignmentId, "Assignment ID")
+        val cleanAuthorId = requireUuid(authorId, "Author ID")
+        val cleanContent = content.trim()
+        if (cleanContent.isBlank()) {
+            error("Comment cannot be empty.")
+        }
+        val comment = client.postgrest.rpc(
+            function = "create_assignment_comment",
+            parameters = buildJsonObject {
+                put("p_assignment_id", cleanAssignmentId)
+                put("p_author_id", cleanAuthorId)
+                put("p_content", cleanContent)
+                put("p_visibility", if (visibility.equals("private", ignoreCase = true)) "private" else "public")
+            },
+        ).decodeAs<AssignmentComment>()
+        invalidateComments(comment.assignmentId)
+        return comment
+    }
+
+    suspend fun deleteAssignmentComment(commentId: String, authorId: String) {
+        val cleanCommentId = requireUuid(commentId, "Comment ID")
+        val cleanAuthorId = requireUuid(authorId, "Author ID")
+        val result = client.postgrest.rpc(
+            function = "delete_assignment_comment",
+            parameters = buildJsonObject {
+                put("p_comment_id", cleanCommentId)
+                put("p_author_id", cleanAuthorId)
+            },
+        ).decodeAs<AssignmentComment>()
+        invalidateComments(result.assignmentId)
+    }
+
+    suspend fun hideAssignmentComment(commentId: String, professorId: String) {
+        val cleanCommentId = requireUuid(commentId, "Comment ID")
+        val cleanProfessorId = requireUuid(professorId, "Professor ID")
+        val result = client.postgrest.rpc(
+            function = "hide_assignment_comment",
+            parameters = buildJsonObject {
+                put("p_comment_id", cleanCommentId)
+                put("p_professor_id", cleanProfessorId)
+            },
+        ).decodeAs<AssignmentComment>()
+        invalidateComments(result.assignmentId)
+    }
+
+    suspend fun unhideAssignmentComment(commentId: String, professorId: String) {
+        val cleanCommentId = requireUuid(commentId, "Comment ID")
+        val cleanProfessorId = requireUuid(professorId, "Professor ID")
+        val result = client.postgrest.rpc(
+            function = "unhide_assignment_comment",
+            parameters = buildJsonObject {
+                put("p_comment_id", cleanCommentId)
+                put("p_professor_id", cleanProfessorId)
+            },
+        ).decodeAs<AssignmentComment>()
+        invalidateComments(result.assignmentId)
+    }
+
     suspend fun deleteClassAssignment(assignmentId: String, professorId: String) {
         val cleanAssignmentId = requireUuid(assignmentId, "Assignment ID")
         val cleanProfessorId = requireUuid(professorId, "Professor ID")
@@ -460,6 +552,43 @@ class ClassRepository(
                 put("p_class_id", cleanClassId)
             },
         )
+    }
+
+    suspend fun updateProfessorClass(
+        professorId: String,
+        classId: String,
+        className: String,
+        subjectCode: String,
+        section: String,
+        track: String,
+    ): ProfessorClass {
+        val cleanProfessorId = requireUuid(professorId, "Professor ID")
+        val cleanClassId = requireUuid(classId, "Class ID")
+        val cleanClassName = className.trim()
+        val cleanSubjectCode = subjectCode.trim().uppercase()
+        val cleanSection = section.trim()
+        val cleanTrack = track.trim()
+
+        if (cleanClassName.isBlank()) {
+            error("Class name is required.")
+        }
+        if (cleanSubjectCode.isBlank()) {
+            error("Subject code is required.")
+        }
+
+        val updatedClass = client.postgrest.rpc(
+            function = "update_class_details",
+            parameters = buildJsonObject {
+                put("p_class_id", cleanClassId)
+                put("p_professor_id", cleanProfessorId)
+                put("p_class_name", cleanClassName)
+                put("p_subject_code", cleanSubjectCode)
+                put("p_section", cleanSection)
+                put("p_track", cleanTrack)
+            },
+        ).decodeAs<ProfessorClass>()
+        invalidateClassList(userId = professorId, role = "professor")
+        return updatedClass
     }
 
     suspend fun getLatestAssignmentStatus(
@@ -725,6 +854,10 @@ class ClassRepository(
         readGuard.invalidateGroup(submissionsGroup(assignmentId = assignmentId, professorId = professorId))
     }
 
+    fun invalidateComments(assignmentId: String) {
+        readGuard.invalidateGroup(commentsGroup(assignmentId))
+    }
+
     fun invalidateAttendance(assignmentId: String, userId: String) {
         readGuard.invalidateGroup(attendanceGroup(assignmentId = assignmentId, userId = userId))
     }
@@ -901,6 +1034,10 @@ class ClassRepository(
             return "submissions:professor=$professorId:assignment=$assignmentId"
         }
 
+        private fun commentsGroup(assignmentId: String): String {
+            return "comments:assignment=$assignmentId"
+        }
+
         private fun attendanceGroup(assignmentId: String, userId: String): String {
             return "attendance:user=$userId:assignment=$assignmentId"
         }
@@ -927,6 +1064,12 @@ class ClassRepository(
                     "Refresh failed. Showing last saved data."
                 restText.contains("Materials do not accept submissions", ignoreCase = true) ->
                     "This upload is a material, not a task. Stay on the material for 10 seconds to mark it viewed."
+                restText.contains("Comments are disabled", ignoreCase = true) ->
+                    "Comments are disabled for this upload."
+                restText.contains("comment", ignoreCase = true) &&
+                    (restText.contains("does not exist", ignoreCase = true) ||
+                        restText.contains("Could not find the function", ignoreCase = true)) ->
+                    "Supabase comment RPC is missing or outdated. Run supabase_assignment_comments_patch.sql."
                 restText.contains("Target points cannot be lower", ignoreCase = true) ->
                     "Target points cannot be lower than an existing student score."
                 restText.contains("Submission is not yet open", ignoreCase = true) ->
@@ -1014,8 +1157,8 @@ class ClassRepository(
                 message.contains("JPEG", ignoreCase = true) -> "Only JPEG, PNG, or WEBP cover images are allowed."
                 message.contains("Join code", ignoreCase = true) -> message
                 message.contains("request", ignoreCase = true) -> message
-                message.isNotBlank() -> "Debug error: $message"
-                else -> "Debug error: ${throwable::class.simpleName ?: "Unknown error"}"
+                message.isNotBlank() -> "Something went wrong while loading. Please try again."
+                else -> "Something went wrong while loading. Please try again."
             }
         }
 

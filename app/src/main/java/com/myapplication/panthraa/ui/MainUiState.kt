@@ -1,6 +1,7 @@
 package com.myapplication.panthraa.ui
 
 import com.myapplication.panthraa.model.AppUser
+import com.myapplication.panthraa.model.AssignmentComment
 import com.myapplication.panthraa.model.AssignmentSubmission
 import com.myapplication.panthraa.model.AssignmentStatus
 import com.myapplication.panthraa.model.AttendanceStudent
@@ -60,9 +61,16 @@ data class MainUiState(
     val isUpdatingJoinRequest: Boolean = false,
     val isJoiningClass: Boolean = false,
     val isCreatingClass: Boolean = false,
+    val isUpdatingClass: Boolean = false,
     val isDeletingSubject: Boolean = false,
     val isLoadingAssignments: Boolean = false,
     val isLoadingAssignmentSubmissions: Boolean = false,
+    val assignmentComments: List<AssignmentComment> = emptyList(),
+    val commentsAssignmentId: String? = null,
+    val isLoadingAssignmentComments: Boolean = false,
+    val isPostingComment: Boolean = false,
+    val isDeletingComment: Boolean = false,
+    val isHidingComment: Boolean = false,
     val isScoringSubmission: Boolean = false,
     val isCreatingAssignment: Boolean = false,
     val isUpdatingAssignment: Boolean = false,

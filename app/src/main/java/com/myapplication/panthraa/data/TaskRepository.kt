@@ -171,8 +171,8 @@ class TaskRepository {
                 message.contains("Title", ignoreCase = true) -> "Title is required."
                 message.contains("Reminder date", ignoreCase = true) -> "Reminder date is required."
                 message.contains("invalid", ignoreCase = true) -> "Reminder type is invalid."
-                message.isNotBlank() -> "Debug error: $message"
-                else -> "Debug error: ${throwable::class.simpleName ?: "Unknown error"}"
+                message.isNotBlank() -> "Something went wrong. Please try again."
+                else -> "Something went wrong. Please try again."
             }
         }
 

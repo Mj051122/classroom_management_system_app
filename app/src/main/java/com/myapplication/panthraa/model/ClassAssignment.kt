@@ -53,6 +53,8 @@ data class ClassAssignment(
     val score: Int? = null,
     @SerialName("requires_file")
     val requiresFile: Boolean = true,
+    @SerialName("allow_comments")
+    val allowComments: Boolean = true,
     @SerialName("file_url")
     val fileUrl: String? = null,
     @SerialName("submission_file_url")
@@ -141,9 +143,37 @@ data class PendingAssignment(
     val themeColor: String = "blue",
     @SerialName("requires_file")
     val requiresFile: Boolean = true,
+    @SerialName("allow_comments")
+    val allowComments: Boolean = true,
     @SerialName("professor_name")
     val professorName: String = "",
 )
+
+@Serializable
+data class AssignmentComment(
+    val id: String = "",
+    @SerialName("assignment_id")
+    val assignmentId: String = "",
+    @SerialName("class_id")
+    val classId: String = "",
+    @SerialName("author_id")
+    val authorId: String = "",
+    @SerialName("author_name")
+    val authorName: String = "",
+    @SerialName("author_role")
+    val authorRole: String = "student",
+    @SerialName("author_photo_url")
+    val authorPhotoUrl: String? = null,
+    val visibility: String = "public",
+    @SerialName("is_hidden")
+    val isHidden: Boolean = false,
+    val content: String = "",
+    @SerialName("created_at")
+    val createdAt: String? = null,
+) {
+    val isPrivate: Boolean
+        get() = visibility.equals("private", ignoreCase = true)
+}
 
 @Serializable
 data class StudentGrade(

@@ -446,7 +446,7 @@ fun CreateClassScreen(
                 coverImageUrl = null,
                 coverImageUri = coverImageUri,
                 themeColor = themeColor,
-                professorName = currentUser.fullName.ifBlank { "Professor" },
+                professorName = currentUser.fullName.ifBlank { "Faculty" },
                 professorPhotoUrl = currentUser.profilePictureUrl,
                 studentCount = 0,
                 progressPercentage = 0,

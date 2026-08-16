@@ -17,7 +17,7 @@ enum class EmailAuthStage {
 
 enum class UserRole(val label: String, val value: String) {
     Student("Student", "student"),
-    Professor("Professor", "professor"),
+    Professor("Faculty", "professor"),
 }
 
 data class AuthUiState(

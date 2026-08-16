@@ -238,8 +238,8 @@ class AnnouncementRepository(
                     restText.contains("schema cache", ignoreCase = true) ||
                     restText.contains("PGRST202", ignoreCase = true) ->
                     "Supabase RPC is missing or outdated. Run the announcement SQL schema."
-                message.isNotBlank() -> "Error: $message"
-                else -> "Unknown error: ${throwable::class.simpleName}"
+                message.isNotBlank() -> "Something went wrong while loading. Please try again."
+                else -> "Something went wrong while loading. Please try again."
             }
         }
 
