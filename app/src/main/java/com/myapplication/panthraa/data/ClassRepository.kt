@@ -1157,8 +1157,8 @@ class ClassRepository(
                 message.contains("JPEG", ignoreCase = true) -> "Only JPEG, PNG, or WEBP cover images are allowed."
                 message.contains("Join code", ignoreCase = true) -> message
                 message.contains("request", ignoreCase = true) -> message
-                message.isNotBlank() -> "Debug error: $message"
-                else -> "Debug error: ${throwable::class.simpleName ?: "Unknown error"}"
+                message.isNotBlank() -> "Something went wrong while loading. Please try again."
+                else -> "Something went wrong while loading. Please try again."
             }
         }
 
