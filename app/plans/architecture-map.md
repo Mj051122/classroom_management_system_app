@@ -38,7 +38,7 @@
 - Professor schedule helpers: `professorDashboardTodaySchedule`, `ProfessorTodayScheduleCard`, and shared dashboard schedule helpers.
 - Student schedule helpers: `studentDashboardTodaySchedule`, `StudentTodayScheduleCard`, and shared dashboard schedule helpers.
 - Both schedule cards depend on class `scheduleDays`, `scheduleStartTime`, and `scheduleEndTime`; no extra SQL/table is required.
-- Dashboard shortcut navigation is handled in `MainScreen` with a dedicated dashboard navigation helper so Android Back returns to Dashboard.
+- Dashboard shortcut navigation is handled in `MainScreen` with a dedicated dashboard navigation helper so Android Back returns to Dashboard.,
 
 ## Class Workspace Notes
 
