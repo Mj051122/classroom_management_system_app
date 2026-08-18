@@ -16,6 +16,7 @@ import com.myapplication.panthraa.model.ProfessorClass
 import com.myapplication.panthraa.model.RecordAttendanceResult
 import com.myapplication.panthraa.model.StudentClass
 import com.myapplication.panthraa.model.StudentGrade
+import com.myapplication.panthraa.model.StudentJoinRequest
 import io.github.jan.supabase.SupabaseClient
 import io.github.jan.supabase.exceptions.RestException
 import io.github.jan.supabase.postgrest.postgrest
@@ -745,14 +746,25 @@ class ClassRepository(
         )
     }
 
-    suspend fun rejectClassJoinRequest(requestId: String, professorId: String) {
+    suspend fun rejectClassJoinRequest(requestId: String, professorId: String, reason: String = "") {
         client.postgrest.rpc(
             function = "reject_class_join_request",
             parameters = buildJsonObject {
                 put("p_request_id", requestId)
                 put("p_professor_id", professorId)
+                put("p_reason", reason.trim())
             },
         )
+    }
+
+    suspend fun getMyClassJoinRequests(studentId: String): List<StudentJoinRequest> {
+        val cleanStudentId = requireUuid(studentId, "Student ID")
+        return client.postgrest.rpc(
+            function = "get_my_class_join_requests",
+            parameters = buildJsonObject {
+                put("p_student_id", cleanStudentId)
+            },
+        ).decodeList<StudentJoinRequest>()
     }
 
     suspend fun createProfessorClass(

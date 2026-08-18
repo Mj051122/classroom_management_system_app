@@ -169,6 +169,17 @@ class AppUserRepository(
         return cleanName
     }
 
+    suspend fun setStudentIrregular(studentId: String, isIrregular: Boolean) {
+        client.postgrest.rpc(
+            function = "mark_student_irregular",
+            parameters = buildJsonObject {
+                put("p_student_id", studentId)
+                put("p_is_irregular", isIrregular)
+            },
+        )
+        invalidatePeople()
+    }
+
     private fun invalidatePeople() {
         readGuard.invalidateGroup(PEOPLE_GROUP)
     }

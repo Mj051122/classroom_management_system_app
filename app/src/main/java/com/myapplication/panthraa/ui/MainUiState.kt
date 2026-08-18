@@ -12,6 +12,7 @@ import com.myapplication.panthraa.model.PendingAssignment
 import com.myapplication.panthraa.model.ProfessorClass
 import com.myapplication.panthraa.model.StudentClass
 import com.myapplication.panthraa.model.StudentGrade
+import com.myapplication.panthraa.model.StudentJoinRequest
 import com.myapplication.panthraa.model.TaskReminder
 import com.myapplication.panthraa.model.ClassAnnouncement
 
@@ -42,6 +43,7 @@ data class MainUiState(
     val attendanceStudents: List<AttendanceStudent> = emptyList(),
     val attendanceError: String? = null,
     val classJoinRequests: List<ClassJoinRequest> = emptyList(),
+    val studentJoinRequests: List<StudentJoinRequest> = emptyList(),
     val assignmentStatuses: Map<String, AssignmentStatus> = emptyMap(),
     val pendingAssignments: List<PendingAssignment> = emptyList(),
     val studentGrades: List<StudentGrade> = emptyList(),
@@ -49,6 +51,7 @@ data class MainUiState(
     val professorGradeMonitorSubmissions: List<ProfessorGradeMonitorSubmission> = emptyList(),
     val taskReminders: List<TaskReminder> = emptyList(),
     val classAnnouncements: List<ClassAnnouncement> = emptyList(),
+    val facultyNotifications: List<ClassAnnouncement> = emptyList(),
     val isUploadingProfilePicture: Boolean = false,
     val isUpdatingProfileDetails: Boolean = false,
     val isLoadingUsers: Boolean = false,
@@ -59,6 +62,7 @@ data class MainUiState(
     val isRecordingAttendance: Boolean = false,
     val isLoadingJoinRequests: Boolean = false,
     val isUpdatingJoinRequest: Boolean = false,
+    val isLoadingStudentJoinRequests: Boolean = false,
     val isJoiningClass: Boolean = false,
     val isCreatingClass: Boolean = false,
     val isUpdatingClass: Boolean = false,
@@ -84,6 +88,7 @@ data class MainUiState(
     val isDeletingAnnouncement: Boolean = false,
     val isLoadingTaskReminders: Boolean = false,
     val isLoadingAnnouncements: Boolean = false,
+    val isLoadingFacultyNotifications: Boolean = false,
     val isPostingAnnouncement: Boolean = false,
     val isSavingTaskReminder: Boolean = false,
     val isDeletingTaskReminder: Boolean = false,

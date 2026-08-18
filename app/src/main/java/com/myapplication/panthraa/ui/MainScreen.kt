@@ -23,6 +23,7 @@ import androidx.compose.animation.core.animateDpAsState
 import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.tween
+import androidx.compose.animation.core.LinearOutSlowInEasing
 import androidx.compose.animation.core.animateFloat
 import androidx.compose.animation.core.infiniteRepeatable
 import androidx.compose.animation.core.rememberInfiniteTransition
@@ -35,6 +36,7 @@ import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.foundation.interaction.collectIsPressedAsState
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -330,13 +332,28 @@ private fun PanthraaBottomBarItem(
         label = "tab_bg",
     )
     val showBadge = !selected && badgeCount > 0
+    val tabInteraction = remember { MutableInteractionSource() }
+    val isTabPressed by tabInteraction.collectIsPressedAsState()
+    val tabScale by animateFloatAsState(
+        targetValue = if (isTabPressed) 0.93f else 1f,
+        animationSpec = tween(120, easing = LinearOutSlowInEasing),
+        label = "tab_scale",
+    )
 
     Column(
         modifier = modifier
             .height(56.dp)
             .clip(RoundedCornerShape(16.dp))
             .background(activeColor.copy(alpha = bgAlpha))
-            .clickable(onClick = onClick)
+            .graphicsLayer {
+                scaleX = tabScale
+                scaleY = tabScale
+            }
+            .clickable(
+                interactionSource = tabInteraction,
+                indication = null,
+                onClick = onClick,
+            )
             .padding(horizontal = 8.dp, vertical = 4.dp),
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.Center,
@@ -588,6 +605,7 @@ fun MainScreen(
                     onJoinClass = viewModel::joinClass,
                     onApproveJoinRequest = viewModel::approveClassJoinRequest,
                     onRejectJoinRequest = viewModel::rejectClassJoinRequest,
+                    onLoadStudentJoinRequests = viewModel::loadStudentJoinRequests,
                     onCreateAssignment = { classId, title, instructions, category, targetPoints, startDate, endDate, startTime, endTime, assignmentType, submissionFormat, requiresFile, allowComments, fileUri ->
                         viewModel.createClassAssignment(classId, title, instructions, category, targetPoints, startDate, endDate, startTime, endTime, assignmentType, submissionFormat, requiresFile, allowComments, fileUri)
                     },
@@ -641,6 +659,11 @@ fun MainScreen(
                         viewModel.updateProfessorClass(classId, className, subjectCode, section, track)
                     },
                     onDeleteClass = viewModel::deleteProfessorClass,
+                    onOpenPeople = {
+                        navController.navigate("people") {
+                            launchSingleTop = true
+                        }
+                    },
                 )
             }
             composable(BottomTab.Tasks.route) {
@@ -674,6 +697,18 @@ fun MainScreen(
                         viewModel.updateProfessorAnnouncement(context, announcementId, title, subtitle, content, targetYears, imageUri, existingImageUrl)
                     },
                     onDeleteAnnouncement = viewModel::deleteProfessorAnnouncement,
+                )
+            }
+            composable("people") {
+                FacultyPeopleScreen(
+                    users = uiState.users,
+                    isLoading = uiState.isLoadingUsers,
+                    internetRequired = uiState.isOfflineMode || uiState.connectivityStatus != ConnectivityStatus.Online,
+                    isUpdating = uiState.isUpdatingProfileDetails,
+                    onLoadUsers = viewModel::loadUsers,
+                    onRefreshUsers = viewModel::refreshUsers,
+                    onSetIrregular = viewModel::setStudentIrregular,
+                    onBack = { navController.popBackStack() },
                 )
             }
         }

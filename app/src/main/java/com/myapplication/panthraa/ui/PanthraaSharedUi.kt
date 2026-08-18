@@ -14,7 +14,11 @@ import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.animation.core.animateDpAsState
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.tween
+import androidx.compose.animation.core.animateDp
 import androidx.compose.animation.core.animateFloat
+import androidx.compose.animation.core.FastOutLinearInEasing
+import androidx.compose.animation.core.LinearOutSlowInEasing
+import androidx.compose.animation.core.updateTransition
 import androidx.compose.animation.core.infiniteRepeatable
 import androidx.compose.animation.core.rememberInfiniteTransition
 import androidx.compose.animation.core.RepeatMode
@@ -25,6 +29,8 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.horizontalScroll
+import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.foundation.interaction.collectIsPressedAsState
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -511,10 +517,14 @@ internal fun PanthraaIconAction(
     enabled: Boolean = true,
     tint: Color = PanthraaBlue,
 ) {
+    val interactionSource = remember { MutableInteractionSource() }
     IconButton(
         onClick = onClick,
         enabled = enabled,
-        modifier = modifier.size(48.dp),
+        interactionSource = interactionSource,
+        modifier = modifier
+            .size(48.dp)
+            .pressScale(interactionSource, pressedScale = 0.9f, durationMillis = 120),
     ) {
         Icon(
             imageVector = icon,
@@ -522,6 +532,61 @@ internal fun PanthraaIconAction(
             tint = if (enabled) tint else Color(0xFFCBD5E1),
             modifier = Modifier.size(22.dp),
         )
+    }
+}
+
+/**
+ * Press feedback: the surface scales down slightly while pressed and springs
+ * back on release. Drives the scale from the same [MutableInteractionSource]
+ * the clickable uses so presses are always detected.
+ */
+@Composable
+internal fun Modifier.pressScale(
+    interactionSource: MutableInteractionSource,
+    pressedScale: Float = 0.96f,
+    durationMillis: Int = 140,
+): Modifier {
+    val isPressed by interactionSource.collectIsPressedAsState()
+    val scale by animateFloatAsState(
+        targetValue = if (isPressed) pressedScale else 1f,
+        animationSpec = tween(durationMillis, easing = LinearOutSlowInEasing),
+        label = "pressScale",
+    )
+    return this.graphicsLayer {
+        scaleX = scale
+        scaleY = scale
+    }
+}
+
+/**
+ * Subtle entrance for occasional content: fades in with a slight rise and a
+ * near-visible scale (never from scale(0)). Stagger with [delayMillis]
+ * (30-80ms between items) when several elements enter together.
+ */
+@Composable
+internal fun Modifier.aliveEntrance(
+    entered: Boolean,
+    delayMillis: Int = 0,
+    enterDurationMillis: Int = 240,
+): Modifier {
+    val transition = updateTransition(entered, label = "aliveEntrance")
+    val entranceAlpha by transition.animateFloat(
+        transitionSpec = { tween(enterDurationMillis, delayMillis = delayMillis, easing = LinearOutSlowInEasing) },
+        label = "entranceAlpha",
+    ) { target -> if (target) 1f else 0f }
+    val entranceScale by transition.animateFloat(
+        transitionSpec = { tween(enterDurationMillis, delayMillis = delayMillis, easing = LinearOutSlowInEasing) },
+        label = "entranceScale",
+    ) { target -> if (target) 1f else 0.96f }
+    val entranceOffsetY by transition.animateDp(
+        transitionSpec = { tween(enterDurationMillis, delayMillis = delayMillis, easing = LinearOutSlowInEasing) },
+        label = "entranceOffset",
+    ) { target -> if (target) 0.dp else 14.dp }
+    return this.graphicsLayer {
+        alpha = entranceAlpha
+        scaleX = entranceScale
+        scaleY = entranceScale
+        translationY = entranceOffsetY.toPx()
     }
 }
 
@@ -663,9 +728,12 @@ internal fun DialogPrimaryButton(
     enabled: Boolean,
     color: Color = PanthraaBlue,
 ) {
+    val interactionSource = remember { MutableInteractionSource() }
     Button(
         onClick = onClick,
         enabled = enabled,
+        interactionSource = interactionSource,
+        modifier = Modifier.pressScale(interactionSource, pressedScale = 0.97f),
         shape = RoundedCornerShape(14.dp),
         colors = ButtonDefaults.buttonColors(containerColor = color),
     ) {
@@ -679,7 +747,13 @@ internal fun DialogCancelButton(
     onClick: () -> Unit,
     enabled: Boolean = true,
 ) {
-    TextButton(onClick = onClick, enabled = enabled) {
+    val interactionSource = remember { MutableInteractionSource() }
+    TextButton(
+        onClick = onClick,
+        enabled = enabled,
+        interactionSource = interactionSource,
+        modifier = Modifier.pressScale(interactionSource, pressedScale = 0.94f, durationMillis = 120),
+    ) {
         Text(text, color = Color(0xFF64748B), fontWeight = FontWeight.Bold)
     }
 }
@@ -798,6 +872,7 @@ internal fun PanthraaLoadingAnimation(
     val progress by animateLottieCompositionAsState(
         composition = composition,
         iterations = LottieConstants.IterateForever,
+        speed = 1.15f,
     )
 
     LottieAnimation(
@@ -1269,6 +1344,12 @@ internal fun Avatar(
         }
     }
 
+    val imageAlpha by animateFloatAsState(
+        targetValue = if (bitmap != null) 1f else 0f,
+        animationSpec = tween(220, easing = LinearOutSlowInEasing),
+        label = "avatarImageAlpha",
+    )
+
     Box(
         modifier = avatarModifier,
         contentAlignment = Alignment.Center,
@@ -1277,7 +1358,9 @@ internal fun Avatar(
             Image(
                 bitmap = bitmap!!,
                 contentDescription = "$name profile picture",
-                modifier = Modifier.fillMaxSize(),
+                modifier = Modifier
+                    .fillMaxSize()
+                    .graphicsLayer { alpha = imageAlpha },
                 contentScale = ContentScale.Crop,
             )
         } else if (showInitial) {

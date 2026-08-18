@@ -1,0 +1,3736 @@
+-- Panthraa fresh Supabase reset schema.
+-- WARNING: This deletes Panthraa app tables and recreates them from scratch.
+-- Use this only on a new/empty Supabase project, or after backing up real data.
+-- Keep this file in sync with every backend/RPC/table change used by the app.
+-- If the app calls a new Supabase RPC, add it here so a fresh reset still works.
+
+create extension if not exists pgcrypto with schema extensions;
+
+do $$
+declare
+    app_function record;
+begin
+    for app_function in
+        select
+            n.nspname as schema_name,
+            p.proname as function_name,
+            pg_get_function_identity_arguments(p.oid) as function_args
+        from pg_proc p
+        join pg_namespace n on n.oid = p.pronamespace
+        where n.nspname = 'public'
+          and p.proname in (
+              'approve_class_join_request',
+              'check_id_number_available',
+              'complete_email_registration',
+              'create_announcement',
+              'create_assignment_comment',
+              'create_class',
+              'create_class_assignment',
+              'create_professor_class',
+              'current_authenticated_app_user',
+              'delete_class_assignment',
+              'delete_announcement',
+              'delete_assignment_comment',
+              'delete_professor_class',
+              'delete_professor_subject',
+              'get_app_users_public',
+              'get_assignment_attendance',
+              'get_assignment_comments',
+              'get_class_assignments',
+              'get_assignment_submissions',
+              'get_class_join_requests',
+              'get_class_join_requests_for_classes',
+              'get_classmates',
+              'get_latest_assignment_status',
+              'get_latest_assignment_statuses',
+              'get_professor_announcements',
+              'get_professor_class_students',
+              'get_professor_classes',
+              'get_student_announcements',
+              'get_student_classes',
+              'get_student_grades',
+              'get_student_pending_assignments',
+              'grade_assignment_submission',
+              'hide_assignment_comment',
+              'join_class_by_code',
+              'login_app_user',
+              'normalize_year_level',
+              'professor_class_json',
+              'register_app_user',
+              'reject_class_join_request',
+              'record_assignment_attendance_by_id_number',
+              'record_material_view',
+              'request_password_reset_code',
+              'verify_password_reset_code',
+              'submit_assignment',
+              'toggle_announcement_read_status',
+              'unhide_assignment_comment',
+              'update_announcement',
+              'update_app_user_extended_profile',
+              'update_app_user_profile_picture',
+              'update_class_assignment',
+              'update_class_details',
+              'year_label'
+          )
+    loop
+        execute format(
+            'drop function if exists %I.%I(%s) cascade',
+            app_function.schema_name,
+            app_function.function_name,
+            app_function.function_args
+        );
+    end loop;
+end $$;
+
+drop function if exists public.get_app_users_public();
+drop function if exists public.register_app_user(text, text, text, text);
+drop function if exists public.login_app_user(text, text, text);
+drop function if exists public.update_app_user_profile_picture(uuid, text);
+drop function if exists public.update_app_user_extended_profile(uuid, text, text, text, text, text, text, text);
+drop function if exists public.update_app_user_extended_profile(uuid, text, text, text, text, text, text, text, text);
+drop function if exists public.create_professor_class(uuid, text);
+drop function if exists public.create_class(uuid, text, text, text, text, text, text);
+drop function if exists public.create_class(uuid, text, text, text, text, text, text, text, text, text);
+drop function if exists public.get_professor_classes(uuid);
+drop function if exists public.get_student_classes(uuid);
+drop function if exists public.join_class_by_code(uuid, text);
+drop function if exists public.get_class_attendance(uuid, uuid, date);
+drop function if exists public.record_attendance_by_id_number(uuid, uuid, text, date);
+drop function if exists public.get_assignment_attendance(uuid, uuid);
+drop function if exists public.record_assignment_attendance_by_id_number(uuid, uuid, text);
+drop function if exists public.record_material_view(uuid, uuid);
+drop function if exists public.get_class_join_requests(uuid, uuid);
+drop function if exists public.approve_class_join_request(uuid, uuid);
+drop function if exists public.reject_class_join_request(uuid, uuid);
+drop function if exists public.get_classmates(uuid);
+drop function if exists public.create_class_assignment(uuid, uuid, text, text);
+drop function if exists public.create_class_assignment(uuid, uuid, text, text, text, int);
+drop function if exists public.create_class_assignment(uuid, uuid, text, text, text, numeric);
+drop function if exists public.create_class_assignment(uuid, uuid, text, text, text, numeric, date, date, time, time);
+drop function if exists public.create_class_assignment(uuid, uuid, text, text, text, numeric, date, date, time, time, text, text);
+drop function if exists public.get_class_assignments(uuid, uuid);
+drop function if exists public.get_assignment_submissions(uuid, uuid);
+drop function if exists public.grade_assignment_submission(uuid, uuid, int);
+drop function if exists public.submit_assignment(uuid, uuid, text);
+drop function if exists public.submit_assignment(uuid, uuid, text, text);
+drop function if exists public.delete_class_assignment(uuid, uuid);
+drop function if exists public.delete_professor_subject(uuid, text, text);
+drop function if exists public.delete_professor_subject(uuid, text, text, text, text, text);
+drop function if exists public.get_latest_assignment_status(uuid);
+drop function if exists public.get_professor_class_students(uuid);
+drop function if exists public.create_announcement(uuid, text, text, text, jsonb);
+drop function if exists public.get_student_announcements(uuid);
+drop function if exists public.get_student_grades(uuid);
+drop function if exists public.get_student_pending_assignments(uuid);
+drop function if exists public.get_professor_announcements(uuid);
+drop function if exists public.toggle_announcement_read_status(uuid, uuid, boolean);
+drop function if exists public.update_announcement(uuid, uuid, text, text, text, jsonb);
+drop function if exists public.delete_announcement(uuid, uuid);
+drop function if exists public.normalize_year_level(text);
+drop function if exists public.year_label(text);
+drop function if exists public.check_id_number_available(text);
+drop function if exists public.complete_email_registration(text, text, text);
+drop function if exists public.current_authenticated_app_user();
+drop function if exists public.create_assignment_comment(uuid, uuid, text, text);
+drop function if exists public.delete_assignment_comment(uuid, uuid);
+drop function if exists public.hide_assignment_comment(uuid, uuid);
+drop function if exists public.unhide_assignment_comment(uuid, uuid);
+drop function if exists public.get_assignment_comments(uuid, uuid);
+drop function if exists public.delete_professor_class(uuid, uuid);
+drop function if exists public.get_class_join_requests_for_classes(uuid[], uuid);
+drop function if exists public.get_latest_assignment_statuses(uuid[]);
+drop function if exists public.update_class_details(uuid, uuid, text, text, text, text);
+drop function if exists public.prepare_legacy_email_upgrade(text, text, text);
+drop function if exists public.complete_legacy_email_upgrade();
+
+drop table if exists public.announcement_reads cascade;
+drop table if exists public.assignment_comments cascade;
+drop table if exists public.class_announcements cascade;
+drop table if exists public.attendance cascade;
+drop table if exists public.assignment_submissions cascade;
+drop table if exists public.class_assignments cascade;
+drop table if exists public.class_join_requests cascade;
+drop table if exists public.class_enrollments cascade;
+drop table if exists public.classes cascade;
+drop table if exists public.password_reset_codes cascade;
+drop table if exists public.app_users cascade;
+
+create table public.app_users (
+    id uuid primary key default extensions.gen_random_uuid(),
+    id_number text not null unique,
+    password text,
+    full_name text not null,
+    email text not null default '',
+    role text not null check (role in ('student', 'professor')),
+    profile_picture_url text,
+    course text,
+    year_level text check (year_level is null or year_level in ('first', 'second', 'third', 'fourth')),
+    section text,
+    track text,
+    bio text,
+    phone_number text,
+    is_blocked boolean not null default false,
+    auth_user_id uuid references auth.users(id) on delete set null,
+    created_at timestamptz not null default now()
+);
+
+-- One phone number per account; blank/null phones are never treated as duplicates.
+create unique index if not exists app_users_phone_number_key
+    on public.app_users (phone_number)
+    where phone_number is not null and trim(phone_number) <> '';
+
+-- One ID number per account (case-insensitive); blank/null IDs are exempt.
+create unique index if not exists app_users_id_number_ci_key
+    on public.app_users (lower(trim(id_number)))
+    where id_number is not null and trim(id_number) <> '';
+
+-- One email per account (case-insensitive); blank/null emails are exempt.
+create unique index if not exists app_users_email_ci_key
+    on public.app_users (lower(trim(email)))
+    where email is not null and trim(email) <> '';
+
+-- One linked Supabase Auth user per profile.
+create unique index if not exists app_users_auth_user_id_key
+    on public.app_users (auth_user_id)
+    where auth_user_id is not null;
+
+-- RLS: authenticated users may read their own linked profile row directly.
+alter table public.app_users enable row level security;
+
+create policy "Users read their linked profile"
+on public.app_users
+for select
+to authenticated
+using ((select auth.uid()) = auth_user_id);
+
+-- Issued password-reset codes (OTP). One active, unconsumed code per user.
+create table public.password_reset_codes (
+    id uuid primary key default extensions.gen_random_uuid(),
+    user_id uuid not null references public.app_users(id) on delete cascade,
+    code_hash text not null,
+    expires_at timestamptz not null,
+    tries_left integer not null default 3,
+    consumed_at timestamptz,
+    created_at timestamptz not null default now()
+);
+
+create index password_reset_codes_user_idx
+    on public.password_reset_codes (user_id);
+
+create table public.classes (
+    id uuid primary key default extensions.gen_random_uuid(),
+    professor_id uuid not null references public.app_users(id) on delete cascade,
+    class_code text,
+    subject_name text,
+    class_name text not null,
+    subject_code text not null,
+    join_code text not null unique check (join_code ~ '^[0-9]{6}$'),
+    year_level text check (year_level is null or year_level in ('first', 'second', 'third', 'fourth')),
+    department text not null default 'Unassigned',
+    section text not null default 'Unassigned',
+    track text,
+    schedule_days text[] not null default array[]::text[],
+    schedule_start_time time,
+    schedule_end_time time,
+    cover_image_url text,
+    theme_color text not null default 'blue',
+    created_at timestamptz not null default now(),
+    constraint classes_schedule_days_check check (
+        schedule_days <@ array['monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday']::text[]
+    ),
+    constraint classes_schedule_time_check check (
+        (array_length(schedule_days, 1) is null and schedule_start_time is null and schedule_end_time is null)
+        or (array_length(schedule_days, 1) > 0 and schedule_start_time is not null and schedule_end_time is not null and schedule_start_time < schedule_end_time)
+    )
+);
+
+create table public.class_enrollments (
+    class_id uuid not null references public.classes(id) on delete cascade,
+    student_id uuid not null references public.app_users(id) on delete cascade,
+    created_at timestamptz not null default now(),
+    primary key (class_id, student_id)
+);
+
+create table public.class_join_requests (
+    id uuid primary key default extensions.gen_random_uuid(),
+    class_id uuid not null references public.classes(id) on delete cascade,
+    student_id uuid not null references public.app_users(id) on delete cascade,
+    status text not null default 'pending' check (status in ('pending', 'approved', 'rejected')),
+    requested_at timestamptz not null default now(),
+    decided_at timestamptz,
+    decided_by uuid references public.app_users(id) on delete set null
+);
+
+create unique index class_join_requests_one_pending
+on public.class_join_requests (class_id, student_id)
+where status = 'pending';
+
+create table public.class_assignments (
+    id uuid primary key default extensions.gen_random_uuid(),
+    class_id uuid not null references public.classes(id) on delete cascade,
+    professor_id uuid not null references public.app_users(id) on delete cascade,
+    title text not null,
+    instructions text not null default '',
+    category text not null default 'lecture' check (category in ('lecture', 'laboratory')),
+    target_points numeric not null default 100 check (target_points > 0),
+    start_date date,
+    end_date date,
+    start_time time without time zone,
+    end_time time without time zone,
+    created_at timestamptz not null default now(),
+    assignment_type text not null default 'task' check (assignment_type in ('material', 'task', 'quiz', 'exam')),
+    submission_format text not null default 'pdf' check (submission_format in ('pdf', 'docx', 'pptx', 'xlsx', 'image', 'zip')),
+    requires_file boolean not null default true,
+    allow_comments boolean not null default true,
+    file_url text
+);
+
+create table public.assignment_submissions (
+    id uuid primary key default extensions.gen_random_uuid(),
+    assignment_id uuid not null references public.class_assignments(id) on delete cascade,
+    student_id uuid not null references public.app_users(id) on delete cascade,
+    response_text text not null,
+    submitted_at timestamptz not null default now(),
+    edit_attempts int not null default 0,
+    score int check (score is null or score >= 0),
+    submission_file_url text,
+    unique (assignment_id, student_id)
+);
+
+create table public.attendance (
+    id uuid primary key default extensions.gen_random_uuid(),
+    assignment_id uuid not null references public.class_assignments(id) on delete cascade,
+    class_id uuid not null references public.classes(id) on delete cascade,
+    student_id uuid not null references public.app_users(id) on delete cascade,
+    id_number text not null,
+    attendance_date date not null default (
+        pg_catalog.timezone(
+            'Asia/Manila',
+            pg_catalog.statement_timestamp()
+        )::date
+    ),
+    status text not null default 'present' check (status in ('present')),
+    created_at timestamptz not null default now(),
+    unique (assignment_id, student_id)
+);
+
+create table public.class_announcements (
+    id uuid primary key default extensions.gen_random_uuid(),
+    professor_id uuid not null references public.app_users(id) on delete cascade,
+    target_years text[] not null default array[]::text[],
+    title text not null,
+    subtitle text not null default '',
+    content text not null,
+    image_url text,
+    created_at timestamptz not null default now(),
+    updated_at timestamptz,
+    check (
+        target_years <@ array['first', 'second', 'third', 'fourth']::text[]
+    )
+);
+
+create table public.announcement_reads (
+    announcement_id uuid not null references public.class_announcements(id) on delete cascade,
+    student_id uuid not null references public.app_users(id) on delete cascade,
+    is_read boolean not null default false,
+    updated_at timestamptz not null default now(),
+    primary key (announcement_id, student_id)
+);
+
+-- Comment thread under every upload (material, task, quiz, exam).
+create table public.assignment_comments (
+    id uuid primary key default extensions.gen_random_uuid(),
+    assignment_id uuid not null references public.class_assignments(id) on delete cascade,
+    class_id uuid not null references public.classes(id) on delete cascade,
+    author_id uuid not null references public.app_users(id) on delete cascade,
+    author_role text not null default 'student' check (author_role in ('professor', 'student')),
+    visibility text not null default 'public' check (visibility in ('public', 'private')),
+    content text not null,
+    is_hidden boolean not null default false,
+    created_at timestamptz not null default now()
+);
+
+create index assignment_comments_assignment_idx
+    on public.assignment_comments (assignment_id, created_at);
+
+alter table public.assignment_comments enable row level security;
+
+do $$
+begin
+    create policy "Assignment comments: read"
+    on public.assignment_comments for select
+    using (
+        exists (
+            select 1
+            from public.classes c
+            where c.id = assignment_comments.class_id
+              and c.professor_id = auth.uid()
+        )
+        or (
+            not coalesce(assignment_comments.is_hidden, false)
+            and (
+                assignment_comments.author_id = auth.uid()
+                or (
+                    assignment_comments.visibility = 'public'
+                    and exists (
+                        select 1
+                        from public.class_enrollments e
+                        where e.class_id = assignment_comments.class_id
+                          and e.student_id = auth.uid()
+                    )
+                )
+            )
+        )
+    );
+
+    create policy "Assignment comments: insert"
+    on public.assignment_comments for insert
+    with check (
+        exists (
+            select 1
+            from public.classes c
+            where c.id = assignment_comments.class_id
+              and c.professor_id = auth.uid()
+        )
+        or exists (
+            select 1
+            from public.class_enrollments e
+            where e.class_id = assignment_comments.class_id
+              and e.student_id = auth.uid()
+        )
+    );
+
+    create policy "Assignment comments: delete"
+    on public.assignment_comments for delete
+    using (
+        assignment_comments.author_id = auth.uid()
+    );
+end $$;
+
+insert into storage.buckets (id, name, public, file_size_limit, allowed_mime_types)
+values (
+    'profile-pictures',
+    'profile-pictures',
+    true,
+    1048576,
+    array['image/jpeg', 'image/png', 'image/webp']
+)
+on conflict (id) do update
+set public = excluded.public,
+    file_size_limit = excluded.file_size_limit,
+    allowed_mime_types = excluded.allowed_mime_types;
+
+insert into storage.buckets (id, name, public, file_size_limit, allowed_mime_types)
+values (
+    'class-covers',
+    'class-covers',
+    true,
+    3145728,
+    array['image/jpeg', 'image/png', 'image/webp']
+)
+on conflict (id) do update
+set public = excluded.public,
+    file_size_limit = excluded.file_size_limit,
+    allowed_mime_types = excluded.allowed_mime_types;
+
+insert into storage.buckets (id, name, public, file_size_limit, allowed_mime_types)
+values (
+    'announcement-images',
+    'announcement-images',
+    true,
+    3145728,
+    array['image/jpeg', 'image/png', 'image/webp']
+)
+on conflict (id) do update
+set public = excluded.public,
+    file_size_limit = excluded.file_size_limit,
+    allowed_mime_types = excluded.allowed_mime_types;
+
+insert into storage.buckets (id, name, public, file_size_limit, allowed_mime_types)
+values (
+    'assignment-files',
+    'assignment-files',
+    true,
+    10485760,
+    array['application/pdf']
+)
+on conflict (id) do update
+set public = excluded.public,
+    file_size_limit = excluded.file_size_limit,
+    allowed_mime_types = excluded.allowed_mime_types;
+
+do $$
+begin
+    if not exists (
+        select 1 from pg_policies
+        where schemaname = 'storage'
+          and tablename = 'objects'
+          and policyname = 'Profile pictures are public'
+    ) then
+        create policy "Profile pictures are public"
+        on storage.objects for select
+        using (bucket_id = 'profile-pictures');
+    end if;
+
+    if not exists (
+        select 1 from pg_policies
+        where schemaname = 'storage'
+          and tablename = 'objects'
+          and policyname = 'Anyone can upload profile pictures'
+    ) then
+        create policy "Anyone can upload profile pictures"
+        on storage.objects for insert
+        with check (bucket_id = 'profile-pictures');
+    end if;
+
+    if not exists (
+        select 1 from pg_policies
+        where schemaname = 'storage'
+          and tablename = 'objects'
+          and policyname = 'Class covers are public'
+    ) then
+        create policy "Class covers are public"
+        on storage.objects for select
+        using (bucket_id = 'class-covers');
+    end if;
+
+    if not exists (
+        select 1 from pg_policies
+        where schemaname = 'storage'
+          and tablename = 'objects'
+          and policyname = 'Anyone can upload class covers'
+    ) then
+        create policy "Anyone can upload class covers"
+        on storage.objects for insert
+        with check (bucket_id = 'class-covers');
+    end if;
+
+    if not exists (
+        select 1 from pg_policies
+        where schemaname = 'storage'
+          and tablename = 'objects'
+          and policyname = 'Announcement images are public'
+    ) then
+        create policy "Announcement images are public"
+        on storage.objects for select
+        using (bucket_id = 'announcement-images');
+    end if;
+
+    if not exists (
+        select 1 from pg_policies
+        where schemaname = 'storage'
+          and tablename = 'objects'
+          and policyname = 'Anyone can upload announcement images'
+    ) then
+        create policy "Anyone can upload announcement images"
+        on storage.objects for insert
+        with check (bucket_id = 'announcement-images');
+    end if;
+
+    if not exists (
+        select 1 from pg_policies
+        where schemaname = 'storage'
+          and tablename = 'objects'
+          and policyname = 'Assignment files are public'
+    ) then
+        create policy "Assignment files are public"
+        on storage.objects for select
+        using (bucket_id = 'assignment-files');
+    end if;
+
+    if not exists (
+        select 1 from pg_policies
+        where schemaname = 'storage'
+          and tablename = 'objects'
+          and policyname = 'Anyone can upload assignment files'
+    ) then
+        create policy "Anyone can upload assignment files"
+        on storage.objects for insert
+        with check (bucket_id = 'assignment-files');
+    end if;
+end $$;
+
+create or replace function public.normalize_year_level(p_year text)
+returns text
+language sql
+immutable
+set search_path = public
+as $$
+    select case lower(trim(coalesce(p_year, '')))
+        when 'first' then 'first'
+        when 'first year' then 'first'
+        when '1' then 'first'
+        when '1st' then 'first'
+        when '1st year' then 'first'
+        when 'second' then 'second'
+        when 'second year' then 'second'
+        when '2' then 'second'
+        when '2nd' then 'second'
+        when '2nd year' then 'second'
+        when 'third' then 'third'
+        when 'third year' then 'third'
+        when '3' then 'third'
+        when '3rd' then 'third'
+        when '3rd year' then 'third'
+        when 'fourth' then 'fourth'
+        when 'fourth year' then 'fourth'
+        when '4' then 'fourth'
+        when '4th' then 'fourth'
+        when '4th year' then 'fourth'
+        else null
+    end;
+$$;
+
+create or replace function public.year_label(p_year text)
+returns text
+language sql
+stable
+set search_path = public
+as $$
+    select case p_year
+        when 'first' then 'First Year'
+        when 'second' then 'Second Year'
+        when 'third' then 'Third Year'
+        when 'fourth' then 'Fourth Year'
+        else 'All Years'
+    end;
+$$;
+
+create or replace function public.register_app_user(
+    p_id_number text,
+    p_full_name text,
+    p_role text,
+    p_password text,
+    p_phone_number text
+)
+returns void
+language plpgsql
+security definer
+set search_path = public
+as $$
+begin
+    if nullif(trim(p_id_number), '') is null then
+        raise exception 'ID number is required.';
+    end if;
+    if nullif(trim(p_full_name), '') is null then
+        raise exception 'Full name is required.';
+    end if;
+    if lower(trim(p_role)) not in ('student', 'professor') then
+        raise exception 'Invalid role.';
+    end if;
+    if length(coalesce(p_password, '')) < 6 then
+        raise exception 'Password must be at least 6 characters.';
+    end if;
+    if nullif(trim(p_phone_number), '') is null then
+        raise exception 'Phone number is required.';
+    end if;
+    if not (trim(p_phone_number) ~ '^(\+639\d{9}|09\d{9})$') then
+        raise exception 'Phone number must use 09XXXXXXXXX or +639XXXXXXXXX format.';
+    end if;
+
+    insert into public.app_users (
+        id_number,
+        full_name,
+        role,
+        password,
+        phone_number
+    )
+    values (
+        trim(p_id_number),
+        trim(p_full_name),
+        lower(trim(p_role)),
+        trim(p_password),
+        trim(p_phone_number)
+    );
+exception
+    when unique_violation then
+        if exists (
+            select 1
+            from public.app_users
+            where trim(phone_number) = trim(p_phone_number)
+        ) then
+            raise exception 'Phone number already registered.';
+        else
+            raise exception 'ID number already exists.';
+        end if;
+end;
+$$;
+
+create or replace function public.login_app_user(
+    p_id_number text,
+    p_password text,
+    p_role text
+)
+returns table (
+    id uuid,
+    id_number text,
+    password text,
+    full_name text,
+    email text,
+    role text,
+    profile_picture_url text,
+    course text,
+    year_level text,
+    section text,
+    track text,
+    bio text,
+    phone_number text,
+    created_at timestamptz
+)
+language plpgsql
+security definer
+set search_path = public
+as $$
+begin
+    return query
+    select
+        u.id,
+        u.id_number,
+        ''::text as password,
+        u.full_name,
+        u.email,
+        u.role,
+        u.profile_picture_url,
+        u.course,
+        u.year_level,
+        u.section,
+        u.track,
+        u.bio,
+        u.phone_number,
+        u.created_at
+    from public.app_users u
+    where lower(trim(u.id_number)) = lower(trim(p_id_number))
+      and trim(u.password) = trim(p_password)
+      and lower(trim(u.role)) = lower(trim(p_role))
+      and u.is_blocked = false
+    limit 1;
+
+    if not found then
+        raise exception 'Invalid ID number, password, or role.';
+    end if;
+end;
+$$;
+
+-- Email-first auth: the profile linked to the currently signed-in Supabase Auth user.
+create or replace function public.current_authenticated_app_user()
+returns table (
+    id uuid,
+    id_number text,
+    full_name text,
+    email text,
+    role text,
+    profile_picture_url text,
+    course text,
+    year_level text,
+    section text,
+    track text,
+    bio text,
+    phone_number text,
+    created_at timestamptz
+)
+language sql
+security definer
+set search_path = public, auth
+as $$
+    select
+        u.id,
+        u.id_number,
+        u.full_name,
+        u.email,
+        u.role,
+        u.profile_picture_url,
+        u.course,
+        u.year_level,
+        u.section,
+        u.track,
+        u.bio,
+        u.phone_number,
+        u.created_at
+    from public.app_users u
+    where u.auth_user_id = (select auth.uid())
+$$;
+
+create or replace function public.complete_email_registration(
+    p_id_number text,
+    p_full_name text,
+    p_role text
+)
+returns setof public.app_users
+language plpgsql
+security definer
+set search_path = public, auth
+as $$
+declare
+    v_auth_user auth.users%rowtype;
+begin
+    if auth.uid() is null then
+        raise exception 'You must verify your email before creating a profile.';
+    end if;
+
+    select * into v_auth_user from auth.users where id = auth.uid();
+    if v_auth_user.id is null or v_auth_user.email_confirmed_at is null then
+        raise exception 'Verify your email before creating a profile.';
+    end if;
+    if nullif(trim(p_id_number), '') is null then
+        raise exception 'ID number is required.';
+    end if;
+    if nullif(trim(p_full_name), '') is null then
+        raise exception 'Full name is required.';
+    end if;
+    if lower(trim(p_role)) not in ('student', 'professor') then
+        raise exception 'Invalid role.';
+    end if;
+
+    -- Duplicate ID guard: friendly error before the unique index would throw.
+    if exists (
+        select 1
+        from public.app_users
+        where lower(trim(id_number)) = lower(trim(p_id_number))
+    ) then
+        raise exception 'ID number is already registered. Log in with the email account that owns it.';
+    end if;
+
+    return query
+    insert into public.app_users (
+        id_number,
+        full_name,
+        email,
+        role,
+        auth_user_id,
+        password
+    )
+    values (
+        trim(p_id_number),
+        trim(p_full_name),
+        lower(trim(v_auth_user.email)),
+        lower(trim(p_role)),
+        v_auth_user.id,
+        null
+    )
+    returning *;
+end;
+$$;
+
+create or replace function public.check_id_number_available(p_id_number text)
+returns boolean
+language plpgsql
+security definer
+set search_path = public
+as $$
+begin
+    if nullif(trim(p_id_number), '') is null then
+        raise exception 'ID number is required.';
+    end if;
+
+    if exists (
+        select 1
+        from public.app_users
+        where lower(trim(id_number)) = lower(trim(p_id_number))
+    ) then
+        raise exception 'ID number is already registered. Log in with the email account that owns it.';
+    end if;
+
+    return true;
+end;
+$$;
+
+create or replace function public.request_password_reset_code(
+    p_id_number text
+)
+returns table (code text)
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+    v_user public.app_users%rowtype;
+    v_code text;
+begin
+    if nullif(trim(p_id_number), '') is null then
+        raise exception 'ID number is required.';
+    end if;
+
+    select * into v_user
+    from public.app_users
+    where lower(trim(id_number)) = lower(trim(p_id_number))
+      and is_blocked = false
+    limit 1;
+
+    if v_user.id is null then
+        return query select ''::text;
+    end if;
+
+    if exists (
+        select 1
+        from public.password_reset_codes
+        where user_id = v_user.id
+          and consumed_at is null
+          and created_at > now() - interval '60 seconds'
+    ) then
+        raise exception 'Please wait a moment before requesting another code.';
+    end if;
+
+    update public.password_reset_codes
+    set consumed_at = now()
+    where user_id = v_user.id
+      and consumed_at is null;
+
+    v_code := lpad(floor(random() * 1000000)::int::text, 6, '0');
+
+    insert into public.password_reset_codes (
+        user_id,
+        code_hash,
+        expires_at
+    )
+    values (
+        v_user.id,
+        encode(extensions.digest(v_code, 'sha256'), 'hex'),
+        now() + interval '5 minutes'
+    );
+
+    return query select v_code;
+end;
+$$;
+
+create or replace function public.verify_password_reset_code(
+    p_id_number text,
+    p_code text,
+    p_new_password text
+)
+returns void
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+    v_user public.app_users%rowtype;
+    v_code_record public.password_reset_codes%rowtype;
+begin
+    if nullif(trim(p_id_number), '') is null then
+        raise exception 'ID number is required.';
+    end if;
+    if nullif(trim(p_code), '') is null then
+        raise exception 'Verification code is required.';
+    end if;
+    if length(coalesce(p_new_password, '')) < 6 then
+        raise exception 'Password must be at least 6 characters.';
+    end if;
+
+    select * into v_user
+    from public.app_users
+    where lower(trim(id_number)) = lower(trim(p_id_number))
+    limit 1;
+
+    if v_user.id is null then
+        raise exception 'Invalid or expired reset code.';
+    end if;
+
+    if v_user.is_blocked then
+        raise exception 'This account is blocked. Contact your administrator.';
+    end if;
+
+    select * into v_code_record
+    from public.password_reset_codes
+    where user_id = v_user.id
+      and consumed_at is null
+    order by created_at desc
+    limit 1;
+
+    if v_code_record.id is null then
+        raise exception 'Invalid or expired reset code.';
+    end if;
+
+    if v_code_record.expires_at < now() then
+        update public.password_reset_codes
+        set consumed_at = now()
+        where id = v_code_record.id;
+        raise exception 'The code has expired. Request a new one.';
+    end if;
+
+    if v_code_record.tries_left <= 0 then
+        update public.password_reset_codes
+        set consumed_at = now()
+        where id = v_code_record.id;
+        raise exception 'Too many attempts. Request a new code.';
+    end if;
+
+    if v_code_record.code_hash <> encode(extensions.digest(trim(p_code), 'sha256'), 'hex') then
+        update public.password_reset_codes
+        set tries_left = tries_left - 1
+        where id = v_code_record.id;
+        if v_code_record.tries_left - 1 <= 0 then
+            update public.password_reset_codes
+            set consumed_at = now()
+            where id = v_code_record.id;
+            raise exception 'Too many attempts. Request a new code.';
+        end if;
+        raise exception 'Incorrect code. % attempt(s) remaining.', v_code_record.tries_left - 1;
+    end if;
+
+    update public.app_users
+    set password = trim(p_new_password)
+    where id = v_user.id;
+
+    update public.password_reset_codes
+    set consumed_at = now()
+    where id = v_code_record.id;
+end;
+$$;
+
+create or replace function public.get_app_users_public()
+returns table (
+    id uuid,
+    id_number text,
+    password text,
+    full_name text,
+    email text,
+    role text,
+    profile_picture_url text,
+    course text,
+    year_level text,
+    section text,
+    track text,
+    bio text,
+    phone_number text,
+    created_at timestamptz
+)
+language sql
+security definer
+set search_path = public
+as $$
+    select
+        u.id,
+        u.id_number,
+        ''::text as password,
+        u.full_name,
+        u.email,
+        u.role,
+        u.profile_picture_url,
+        u.course,
+        u.year_level,
+        u.section,
+        u.track,
+        u.bio,
+        u.phone_number,
+        u.created_at
+    from public.app_users u
+    where u.is_blocked = false
+    order by u.created_at desc;
+$$;
+
+create or replace function public.update_app_user_profile_picture(
+    p_user_id uuid,
+    p_profile_picture_url text
+)
+returns void
+language plpgsql
+security definer
+set search_path = public
+as $$
+begin
+    update public.app_users
+    set profile_picture_url = nullif(trim(coalesce(p_profile_picture_url, '')), '')
+    where id = p_user_id;
+
+    if not found then
+        raise exception 'User not found.';
+    end if;
+end;
+$$;
+
+create or replace function public.update_app_user_extended_profile(
+    p_user_id uuid,
+    p_full_name text,
+    p_course text default null,
+    p_year text default null,
+    p_section text default null,
+    p_track text default null,
+    p_bio text default null,
+    p_phone_number text default null
+)
+returns void
+language plpgsql
+security definer
+set search_path = public
+as $$
+begin
+    if nullif(trim(p_full_name), '') is null then
+        raise exception 'Full name is required.';
+    end if;
+
+    update public.app_users
+    set full_name = trim(p_full_name),
+        course = nullif(trim(coalesce(p_course, '')), ''),
+        year_level = public.normalize_year_level(p_year),
+        section = nullif(trim(coalesce(p_section, '')), ''),
+        track = nullif(trim(coalesce(p_track, '')), ''),
+        bio = nullif(trim(coalesce(p_bio, '')), ''),
+        phone_number = nullif(trim(coalesce(p_phone_number, '')), '')
+    where id = p_user_id;
+
+    if not found then
+        raise exception 'User not found.';
+    end if;
+end;
+$$;
+
+create or replace function public.professor_class_json(p_class public.classes)
+returns jsonb
+language plpgsql
+stable
+security definer
+set search_path = public
+as $$
+declare
+    v_professor public.app_users%rowtype;
+begin
+    select * into v_professor
+    from public.app_users
+    where id = p_class.professor_id;
+
+    return jsonb_build_object(
+        'id', p_class.id,
+        'class_code', coalesce(p_class.class_code, p_class.subject_code),
+        'subject_name', coalesce(p_class.subject_name, p_class.class_name),
+        'class_name', p_class.class_name,
+        'subject_code', p_class.subject_code,
+        'join_code', p_class.join_code,
+        'year_level', p_class.year_level,
+        'department', coalesce(nullif(p_class.department, ''), 'Unassigned'),
+        'section', coalesce(nullif(p_class.section, ''), 'Unassigned'),
+        'track', p_class.track,
+        'schedule_days', coalesce(p_class.schedule_days, array[]::text[]),
+        'schedule_start_time', p_class.schedule_start_time,
+        'schedule_end_time', p_class.schedule_end_time,
+        'cover_image_url', p_class.cover_image_url,
+        'theme_color', coalesce(p_class.theme_color, 'blue'),
+        'professor_id', p_class.professor_id,
+        'professor_name', coalesce(v_professor.full_name, ''),
+        'professor_photo_url', v_professor.profile_picture_url,
+        'student_count', (
+            select count(*)::int
+            from public.class_enrollments e
+            where e.class_id = p_class.id
+        ),
+        'progress_percentage', 0,
+        'created_at', p_class.created_at
+    );
+end;
+$$;
+
+create or replace function public.create_class(
+    p_professor_id uuid,
+    p_class_name text,
+    p_subject_code text,
+    p_join_code text,
+    p_year_level text default null,
+    p_department text default null,
+    p_section text default null,
+    p_track text default null,
+    p_cover_image_url text default null,
+    p_theme_color text default 'blue',
+    p_schedule_days text[] default null,
+    p_schedule_start_time time default null,
+    p_schedule_end_time time default null
+)
+returns jsonb
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+    v_class public.classes%rowtype;
+    v_year text := public.normalize_year_level(p_year_level);
+    v_department text := nullif(trim(coalesce(p_department, '')), '');
+    v_section text := nullif(trim(coalesce(p_section, '')), '');
+    v_track text := nullif(trim(coalesce(p_track, '')), '');
+    v_schedule_days text[];
+    v_schedule_start_time time := p_schedule_start_time;
+    v_schedule_end_time time := p_schedule_end_time;
+begin
+    select coalesce(array_agg(day order by array_position(
+        array['monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday']::text[],
+        day
+    )), array[]::text[])
+    into v_schedule_days
+    from (
+        select distinct lower(trim(raw_day.day)) as day
+        from unnest(coalesce(p_schedule_days, array[]::text[])) as raw_day(day)
+        where nullif(trim(raw_day.day), '') is not null
+    ) normalized_days;
+
+    if nullif(trim(p_class_name), '') is null then
+        raise exception 'Class name is required.';
+    end if;
+    if nullif(trim(p_subject_code), '') is null then
+        raise exception 'Subject code is required.';
+    end if;
+    if p_join_code !~ '^[0-9]{6}$' then
+        raise exception 'Join code must be exactly 6 digits.';
+    end if;
+    if v_year is null then
+        raise exception 'Year level is required.';
+    end if;
+    if v_department is null then
+        raise exception 'Department is required.';
+    end if;
+    if v_section is null then
+        raise exception 'Section is required.';
+    end if;
+    if array_length(v_schedule_days, 1) is null then
+        raise exception 'Set schedule is required.';
+    end if;
+    if exists (
+        select 1
+        from unnest(v_schedule_days) as schedule_day(day)
+        where schedule_day.day not in ('monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday')
+    ) then
+        raise exception 'Invalid schedule day.';
+    end if;
+    if v_schedule_start_time is null or v_schedule_end_time is null then
+        raise exception 'Schedule time range is required.';
+    end if;
+    if v_schedule_start_time >= v_schedule_end_time then
+        raise exception 'Schedule end time must be after the start time.';
+    end if;
+    if not exists (
+        select 1 from public.app_users
+        where id = p_professor_id
+          and role = 'professor'
+          and is_blocked = false
+    ) then
+        raise exception 'Professor not found.';
+    end if;
+    if exists (
+        select 1
+        from public.classes c
+        where public.normalize_year_level(c.year_level) = v_year
+          and lower(trim(coalesce(c.department, ''))) = lower(trim(v_department))
+          and lower(trim(coalesce(c.section, ''))) = lower(trim(v_section))
+          and lower(trim(coalesce(c.track, ''))) = lower(trim(coalesce(v_track, '')))
+          and coalesce(c.schedule_days, array[]::text[]) && v_schedule_days
+          and c.schedule_start_time is not null
+          and c.schedule_end_time is not null
+          and v_schedule_start_time < c.schedule_end_time
+          and v_schedule_end_time > c.schedule_start_time
+    ) then
+        raise exception 'Schedule conflicts with an existing class for this year, course, section, and track.';
+    end if;
+
+    insert into public.classes (
+        professor_id,
+        class_code,
+        subject_name,
+        class_name,
+        subject_code,
+        join_code,
+        year_level,
+        department,
+        section,
+        track,
+        schedule_days,
+        schedule_start_time,
+        schedule_end_time,
+        cover_image_url,
+        theme_color
+    )
+    values (
+        p_professor_id,
+        upper(trim(p_subject_code)),
+        trim(p_class_name),
+        trim(p_class_name),
+        upper(trim(p_subject_code)),
+        trim(p_join_code),
+        v_year,
+        v_department,
+        v_section,
+        v_track,
+        v_schedule_days,
+        v_schedule_start_time,
+        v_schedule_end_time,
+        nullif(trim(coalesce(p_cover_image_url, '')), ''),
+        lower(trim(coalesce(p_theme_color, 'blue')))
+    )
+    returning * into v_class;
+
+    return public.professor_class_json(v_class);
+exception
+    when unique_violation then
+        raise exception 'Join code is already taken.';
+end;
+$$;
+
+create or replace function public.create_professor_class(
+    p_professor_id uuid,
+    p_subject_name text
+)
+returns jsonb
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+    v_join_code text;
+    v_subject text := trim(p_subject_name);
+begin
+    if nullif(v_subject, '') is null then
+        raise exception 'Subject name is required.';
+    end if;
+
+    loop
+        v_join_code := lpad((floor(random() * 1000000)::int)::text, 6, '0');
+        exit when not exists (select 1 from public.classes where join_code = v_join_code);
+    end loop;
+
+    return public.create_class(
+        p_professor_id,
+        v_subject,
+        upper(left(regexp_replace(v_subject, '[^A-Za-z0-9]', '', 'g'), 8)),
+        v_join_code,
+        'first',
+        'Unassigned',
+        'Unassigned',
+        null,
+        null,
+        'blue',
+        array['monday']::text[],
+        '08:00'::time,
+        '09:00'::time
+    );
+end;
+$$;
+
+create or replace function public.get_professor_classes(p_professor_id uuid)
+returns table (
+    id uuid,
+    class_code text,
+    subject_name text,
+    class_name text,
+    subject_code text,
+    join_code text,
+    year_level text,
+    department text,
+    section text,
+    track text,
+    schedule_days text[],
+    schedule_start_time time,
+    schedule_end_time time,
+    cover_image_url text,
+    theme_color text,
+    professor_id uuid,
+    professor_name text,
+    professor_photo_url text,
+    student_count int,
+    progress_percentage int,
+    created_at timestamptz
+)
+language sql
+security definer
+set search_path = public
+as $$
+    select
+        c.id,
+        coalesce(c.class_code, c.subject_code) as class_code,
+        coalesce(c.subject_name, c.class_name) as subject_name,
+        c.class_name,
+        c.subject_code,
+        c.join_code,
+        c.year_level,
+        coalesce(nullif(c.department, ''), 'Unassigned') as department,
+        coalesce(nullif(c.section, ''), 'Unassigned') as section,
+        c.track,
+        coalesce(c.schedule_days, array[]::text[]) as schedule_days,
+        c.schedule_start_time,
+        c.schedule_end_time,
+        c.cover_image_url,
+        coalesce(c.theme_color, 'blue') as theme_color,
+        c.professor_id,
+        coalesce(p.full_name, '') as professor_name,
+        p.profile_picture_url as professor_photo_url,
+        coalesce((
+            select count(*)::int
+            from public.class_enrollments e
+            where e.class_id = c.id
+        ), 0) as student_count,
+        0 as progress_percentage,
+        c.created_at
+    from public.classes c
+    left join public.app_users p on p.id = c.professor_id
+    where c.professor_id = p_professor_id
+    order by c.created_at asc;
+$$;
+
+create or replace function public.get_student_classes(p_student_id uuid)
+returns table (
+    id uuid,
+    class_code text,
+    subject_name text,
+    class_name text,
+    subject_code text,
+    join_code text,
+    year_level text,
+    department text,
+    section text,
+    track text,
+    schedule_days text[],
+    schedule_start_time time,
+    schedule_end_time time,
+    cover_image_url text,
+    theme_color text,
+    professor_initial text,
+    professor_name text,
+    professor_position text,
+    professor_photo_url text,
+    student_count int,
+    progress_percentage int,
+    completed_assignments int,
+    total_assignments int,
+    graded_assignments int,
+    average_score int,
+    room_id text
+)
+language sql
+security definer
+set search_path = public
+as $$
+    with app_clock as materialized (
+        select pg_catalog.timezone(
+            'Asia/Manila',
+            pg_catalog.statement_timestamp()
+        ) as local_now
+    )
+    select
+        c.id,
+        coalesce(c.class_code, c.subject_code) as class_code,
+        coalesce(c.subject_name, c.class_name) as subject_name,
+        c.class_name,
+        c.subject_code,
+        c.join_code,
+        c.year_level,
+        coalesce(nullif(c.department, ''), 'Unassigned') as department,
+        coalesce(nullif(c.section, ''), 'Unassigned') as section,
+        c.track,
+        coalesce(c.schedule_days, array[]::text[]) as schedule_days,
+        c.schedule_start_time,
+        c.schedule_end_time,
+        c.cover_image_url,
+        coalesce(c.theme_color, 'blue') as theme_color,
+        upper(left(coalesce(p.full_name, 'P'), 1)) as professor_initial,
+        coalesce(p.full_name, '') as professor_name,
+        'Professor' as professor_position,
+        p.profile_picture_url as professor_photo_url,
+        coalesce((
+            select count(*)::int
+            from public.class_enrollments e2
+            where e2.class_id = c.id
+        ), 0) as student_count,
+        coalesce((
+            select case
+                when count(a.id) = 0 then 0
+                else round(count(s.id)::numeric * 100 / count(a.id)::numeric)::int
+            end
+            from public.class_assignments a
+            left join public.assignment_submissions s
+                on s.assignment_id = a.id
+               and s.student_id = p_student_id
+            where a.class_id = c.id
+              and (
+                  a.start_date is null
+                  or clock.local_now >=
+                     a.start_date + coalesce(a.start_time, time '00:00:00')
+              )
+        ), 0) as progress_percentage,
+        coalesce((
+            select count(*)::int
+            from public.class_assignments a
+            join public.assignment_submissions s
+                on s.assignment_id = a.id
+               and s.student_id = p_student_id
+            where a.class_id = c.id
+              and (
+                  a.start_date is null
+                  or clock.local_now >=
+                     a.start_date + coalesce(a.start_time, time '00:00:00')
+              )
+        ), 0) as completed_assignments,
+        coalesce((
+            select count(*)::int
+            from public.class_assignments a
+            where a.class_id = c.id
+              and (
+                  a.start_date is null
+                  or clock.local_now >=
+                     a.start_date + coalesce(a.start_time, time '00:00:00')
+              )
+        ), 0) as total_assignments,
+        coalesce((
+            select count(*)::int
+            from public.class_assignments a
+            join public.assignment_submissions s
+                on s.assignment_id = a.id
+               and s.student_id = p_student_id
+            where a.class_id = c.id
+              and s.score is not null
+        ), 0) as graded_assignments,
+        coalesce((
+            select round(avg(s.score))::int
+            from public.class_assignments a
+            join public.assignment_submissions s
+                on s.assignment_id = a.id
+               and s.student_id = p_student_id
+            where a.class_id = c.id
+              and s.score is not null
+        ), 0) as average_score,
+        null::text as room_id
+    from public.class_enrollments e
+    cross join app_clock clock
+    join public.classes c on c.id = e.class_id
+    left join public.app_users p on p.id = c.professor_id
+    where e.student_id = p_student_id
+    order by e.created_at asc, c.created_at asc;
+$$;
+
+create or replace function public.join_class_by_code(
+    p_student_id uuid,
+    p_class_code text
+)
+returns void
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+    v_class public.classes%rowtype;
+    v_student public.app_users%rowtype;
+    v_student_year text;
+    v_student_department text;
+    v_student_section text;
+    v_student_track text;
+begin
+    select * into v_student
+    from public.app_users
+    where id = p_student_id
+      and role = 'student'
+      and is_blocked = false;
+
+    if v_student.id is null then
+        raise exception 'Student profile not found.';
+    end if;
+
+    v_student_year := public.normalize_year_level(v_student.year_level);
+    v_student_department := lower(trim(coalesce(v_student.course, '')));
+    v_student_section := lower(trim(coalesce(v_student.section, '')));
+    v_student_track := lower(trim(coalesce(v_student.track, '')));
+
+    if v_student_year is null or v_student_department = '' or v_student_section = '' then
+        raise exception 'Complete your academic profile before joining a class.';
+    end if;
+
+    select * into v_class
+    from public.classes
+    where join_code = trim(p_class_code)
+       or class_code = trim(p_class_code);
+
+    if v_class.id is null then
+        raise exception 'Join code not found.';
+    end if;
+
+    if v_class.year_level is not null and coalesce(v_student_year, '') <> v_class.year_level then
+        raise exception 'Your profile year level must match this class before joining.';
+    end if;
+    if lower(trim(coalesce(v_class.department, ''))) <> v_student_department then
+        raise exception 'Your profile department must match this class before joining.';
+    end if;
+    if lower(trim(coalesce(v_class.section, ''))) <> v_student_section then
+        raise exception 'Your profile section must match this class before joining.';
+    end if;
+    if nullif(trim(coalesce(v_class.track, '')), '') is not null
+       and lower(trim(coalesce(v_class.track, ''))) <> v_student_track then
+        raise exception 'Your profile track must match this class before joining.';
+    end if;
+
+    if exists (
+        select 1 from public.class_enrollments e
+        where e.class_id = v_class.id
+          and e.student_id = p_student_id
+    ) then
+        raise exception 'You are already enrolled in this class.';
+    end if;
+
+    if exists (
+        select 1 from public.class_join_requests r
+        where r.class_id = v_class.id
+          and r.student_id = p_student_id
+          and r.status = 'pending'
+    ) then
+        raise exception 'You already have a pending request for this class.';
+    end if;
+
+    insert into public.class_join_requests (class_id, student_id)
+    values (v_class.id, p_student_id);
+end;
+$$;
+
+create or replace function public.get_class_join_requests(
+    p_class_id uuid,
+    p_professor_id uuid
+)
+returns table (
+    id uuid,
+    class_id uuid,
+    class_name text,
+    subject_code text,
+    student_id uuid,
+    student_id_number text,
+    student_name text,
+    student_profile_picture_url text,
+    course text,
+    year text,
+    section text,
+    track text,
+    requested_at timestamptz
+)
+language sql
+security definer
+set search_path = public
+as $$
+    select
+        r.id,
+        r.class_id,
+        c.class_name,
+        c.subject_code,
+        r.student_id,
+        coalesce(u.id_number, '') as student_id_number,
+        coalesce(u.full_name, '') as student_name,
+        u.profile_picture_url as student_profile_picture_url,
+        u.course,
+        u.year_level as year,
+        u.section,
+        u.track,
+        r.requested_at
+    from public.class_join_requests r
+    join public.classes c on c.id = r.class_id
+    join public.app_users u on u.id = r.student_id
+    where r.class_id = p_class_id
+      and c.professor_id = p_professor_id
+      and r.status = 'pending'
+    order by r.requested_at asc;
+$$;
+
+create or replace function public.get_class_join_requests_for_classes(
+    p_class_ids uuid[],
+    p_professor_id uuid
+)
+returns table (
+    id uuid,
+    class_id uuid,
+    class_name text,
+    subject_code text,
+    student_id uuid,
+    student_id_number text,
+    student_name text,
+    student_profile_picture_url text,
+    course text,
+    year text,
+    section text,
+    track text,
+    requested_at timestamptz
+)
+language sql
+security definer
+set search_path = public
+as $$
+    with requested_classes as (
+        select distinct unnest(coalesce(p_class_ids, array[]::uuid[])) as class_id
+    )
+    select
+        r.id,
+        r.class_id,
+        c.class_name,
+        c.subject_code,
+        r.student_id,
+        coalesce(u.id_number, '') as student_id_number,
+        coalesce(u.full_name, '') as student_name,
+        u.profile_picture_url as student_profile_picture_url,
+        u.course,
+        u.year_level as year,
+        u.section,
+        u.track,
+        r.requested_at
+    from public.class_join_requests r
+    join requested_classes rc on rc.class_id = r.class_id
+    join public.classes c on c.id = r.class_id
+    join public.app_users u on u.id = r.student_id
+    where c.professor_id = p_professor_id
+      and r.status = 'pending'
+    order by r.class_id, r.requested_at asc, r.id asc;
+$$;
+
+create or replace function public.approve_class_join_request(
+    p_request_id uuid,
+    p_professor_id uuid
+)
+returns void
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+    v_request public.class_join_requests%rowtype;
+begin
+    select r.* into v_request
+    from public.class_join_requests r
+    join public.classes c on c.id = r.class_id
+    where r.id = p_request_id
+      and c.professor_id = p_professor_id
+      and r.status = 'pending';
+
+    if v_request.id is null then
+        raise exception 'Pending join request not found.';
+    end if;
+
+    insert into public.class_enrollments (class_id, student_id)
+    values (v_request.class_id, v_request.student_id)
+    on conflict do nothing;
+
+    update public.class_join_requests
+    set status = 'approved',
+        decided_at = now(),
+        decided_by = p_professor_id
+    where id = p_request_id;
+end;
+$$;
+
+create or replace function public.reject_class_join_request(
+    p_request_id uuid,
+    p_professor_id uuid
+)
+returns void
+language plpgsql
+security definer
+set search_path = public
+as $$
+begin
+    update public.class_join_requests r
+    set status = 'rejected',
+        decided_at = now(),
+        decided_by = p_professor_id
+    from public.classes c
+    where r.id = p_request_id
+      and r.class_id = c.id
+      and c.professor_id = p_professor_id
+      and r.status = 'pending';
+
+    if not found then
+        raise exception 'Pending join request not found.';
+    end if;
+end;
+$$;
+
+create or replace function public.get_classmates(p_class_id uuid)
+returns table (
+    id uuid,
+    name text,
+    photo_url text,
+    has_submitted_recent boolean
+)
+language sql
+security definer
+set search_path = public
+as $$
+    with latest_assignment as (
+        select a.id
+        from public.class_assignments a
+        where a.class_id = p_class_id
+        order by a.created_at desc
+        limit 1
+    )
+    select
+        u.id,
+        coalesce(u.full_name, '') as name,
+        u.profile_picture_url as photo_url,
+        exists (
+            select 1
+            from public.assignment_submissions s
+            where s.assignment_id = (select id from latest_assignment)
+              and s.student_id = u.id
+        ) as has_submitted_recent
+    from public.class_enrollments e
+    join public.app_users u on u.id = e.student_id
+    where e.class_id = p_class_id
+    order by u.full_name asc;
+$$;
+
+create or replace function public.get_assignment_attendance(
+    p_assignment_id uuid,
+    p_user_id uuid
+)
+returns table (
+    assignment_id uuid,
+    student_id uuid,
+    id_number text,
+    name text,
+    photo_url text,
+    attendance_date date,
+    status text,
+    attendance_id uuid,
+    recorded_at timestamptz
+)
+language sql
+security definer
+set search_path = public
+as $$
+    with app_clock as materialized (
+        select pg_catalog.timezone(
+            'Asia/Manila',
+            pg_catalog.statement_timestamp()
+        ) as local_now
+    )
+    select
+        a0.id as assignment_id,
+        u.id as student_id,
+        u.id_number,
+        u.full_name as name,
+        u.profile_picture_url as photo_url,
+        coalesce(att.attendance_date, clock.local_now::date) as attendance_date,
+        case when att.id is null then 'absent' else 'present' end as status,
+        att.id as attendance_id,
+        att.created_at as recorded_at
+    from public.class_assignments a0
+    cross join app_clock clock
+    join public.classes c on c.id = a0.class_id
+    join public.class_enrollments e on e.class_id = c.id
+    join public.app_users u on u.id = e.student_id
+    left join public.attendance att
+        on att.assignment_id = a0.id
+       and att.student_id = e.student_id
+    where a0.id = p_assignment_id
+      and (
+          c.professor_id = p_user_id
+          or exists (
+              select 1
+              from public.class_enrollments viewer_enrollment
+              where viewer_enrollment.class_id = c.id
+                and viewer_enrollment.student_id = p_user_id
+          )
+      )
+      and u.role = 'student'
+      and u.is_blocked = false
+    order by u.full_name;
+$$;
+
+create or replace function public.record_assignment_attendance_by_id_number(
+    p_assignment_id uuid,
+    p_professor_id uuid,
+    p_id_number text
+)
+returns jsonb
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+    v_assignment public.class_assignments%rowtype;
+    v_student public.app_users%rowtype;
+    v_attendance public.attendance%rowtype;
+    v_inserted boolean := false;
+    v_manila_now timestamp without time zone :=
+        pg_catalog.timezone(
+            'Asia/Manila',
+            pg_catalog.statement_timestamp()
+        );
+    v_opens_at timestamp without time zone;
+    v_closes_at timestamp without time zone;
+begin
+    if nullif(trim(p_id_number), '') is null then
+        raise exception 'Student ID number is required.';
+    end if;
+
+    select a.*
+    into v_assignment
+    from public.class_assignments a
+    join public.classes c on c.id = a.class_id
+    where a.id = p_assignment_id
+      and c.professor_id = p_professor_id;
+
+    if not found then
+        raise exception 'You can only check attendance for your own activity.';
+    end if;
+
+    if v_assignment.start_date is not null then
+        v_opens_at :=
+            v_assignment.start_date
+            + coalesce(v_assignment.start_time, time '00:00:00');
+
+        if v_manila_now < v_opens_at then
+            raise exception
+                'Attendance is not yet open. It opens at % Asia/Manila.',
+                v_opens_at;
+        end if;
+    end if;
+
+    if v_assignment.end_date is not null then
+        v_closes_at :=
+            v_assignment.end_date
+            + coalesce(
+                v_assignment.end_time,
+                time '23:59:59.999999'
+            );
+
+        if v_manila_now > v_closes_at then
+            raise exception
+                'Attendance window has ended. It ended at % Asia/Manila.',
+                v_closes_at;
+        end if;
+    end if;
+
+    select u.*
+    into v_student
+    from public.app_users u
+    join public.class_enrollments e on e.student_id = u.id
+    where e.class_id = v_assignment.class_id
+      and lower(trim(u.id_number)) = lower(trim(p_id_number))
+      and u.role = 'student'
+      and u.is_blocked = false
+    limit 1;
+
+    if not found then
+        raise exception 'Student is not enrolled in this class.';
+    end if;
+
+    insert into public.attendance (
+        assignment_id,
+        class_id,
+        student_id,
+        id_number,
+        attendance_date,
+        status
+    )
+    values (
+        p_assignment_id,
+        v_assignment.class_id,
+        v_student.id,
+        v_student.id_number,
+        v_manila_now::date,
+        'present'
+    )
+    on conflict (assignment_id, student_id) do nothing
+    returning * into v_attendance;
+
+    v_inserted := found;
+
+    if not v_inserted then
+        select att.*
+        into v_attendance
+        from public.attendance att
+        where att.assignment_id = p_assignment_id
+          and att.student_id = v_student.id;
+    end if;
+
+    return pg_catalog.jsonb_build_object(
+        'student_id', v_student.id,
+        'id_number', v_student.id_number,
+        'name', v_student.full_name,
+        'already_recorded', not v_inserted,
+        'message', case
+            when v_inserted then 'Attendance recorded.'
+            else 'Attendance already recorded.'
+        end
+    );
+end;
+$$;
+
+create or replace function public.create_class_assignment(
+    p_class_id uuid,
+    p_professor_id uuid,
+    p_title text,
+    p_instructions text default '',
+    p_category text default 'lecture',
+    p_target_points numeric default 100,
+    p_start_date date default null,
+    p_end_date date default null,
+    p_start_time time default null,
+    p_end_time time default null,
+    p_assignment_type text default 'task',
+    p_submission_format text default 'pdf',
+    p_file_url text default null,
+    p_requires_file boolean default true,
+    p_allow_comments boolean default true
+)
+returns jsonb
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+    v_assignment public.class_assignments%rowtype;
+    v_category text := case
+        when lower(trim(coalesce(p_category, 'lecture'))) = 'laboratory' then 'laboratory'
+        else 'lecture'
+    end;
+    v_assignment_type text := lower(trim(coalesce(p_assignment_type, 'task')));
+    v_submission_format text := lower(trim(coalesce(p_submission_format, 'pdf')));
+    v_target_points numeric := greatest(coalesce(p_target_points, 100), 1);
+    v_requires_file boolean := coalesce(p_requires_file, true);
+    v_allow_comments boolean := coalesce(p_allow_comments, true);
+begin
+    if nullif(trim(p_title), '') is null then
+        raise exception 'Assignment title is required.';
+    end if;
+
+    if v_assignment_type = 'assignment' then
+        v_assignment_type := 'task';
+    end if;
+
+    if v_assignment_type not in ('material', 'task', 'quiz', 'exam') then
+        raise exception 'Invalid assignment type.';
+    end if;
+
+    if v_submission_format not in ('pdf', 'docx', 'pptx', 'xlsx', 'image', 'zip') then
+        raise exception 'Invalid submission format.';
+    end if;
+
+    if not exists (
+        select 1 from public.classes c
+        where c.id = p_class_id
+          and c.professor_id = p_professor_id
+    ) then
+        raise exception 'You can only upload assignments to your own class.';
+    end if;
+
+    if p_start_date is not null and p_end_date is not null and p_start_date > p_end_date then
+        raise exception 'Start date must be on or before end date.';
+    end if;
+
+    insert into public.class_assignments (
+        class_id,
+        professor_id,
+        title,
+        instructions,
+        category,
+        target_points,
+        start_date,
+        end_date,
+        start_time,
+        end_time,
+        assignment_type,
+        submission_format,
+        file_url,
+        requires_file,
+        allow_comments
+    )
+    values (
+        p_class_id,
+        p_professor_id,
+        trim(p_title),
+        trim(coalesce(p_instructions, '')),
+        v_category,
+        v_target_points,
+        p_start_date,
+        p_end_date,
+        p_start_time,
+        p_end_time,
+        v_assignment_type,
+        v_submission_format,
+        nullif(trim(coalesce(p_file_url, '')), ''),
+        v_requires_file,
+        v_allow_comments
+    )
+    returning * into v_assignment;
+
+    return jsonb_build_object(
+        'id', v_assignment.id,
+        'class_id', v_assignment.class_id,
+        'professor_id', v_assignment.professor_id,
+        'title', v_assignment.title,
+        'instructions', v_assignment.instructions,
+        'category', v_assignment.category,
+        'target_points', round(v_assignment.target_points)::int,
+        'start_date', v_assignment.start_date,
+        'end_date', v_assignment.end_date,
+        'start_time', v_assignment.start_time,
+        'end_time', v_assignment.end_time,
+        'has_submitted', false,
+        'submission_text', null,
+        'submitted_at', null,
+        'edit_attempts', null,
+        'submitted_count', 0,
+        'total_students', (
+            select count(*)::int from public.class_enrollments e where e.class_id = p_class_id
+        ),
+        'created_at', v_assignment.created_at,
+        'attendance_status', null,
+        'assignment_type', v_assignment.assignment_type,
+        'submission_format', v_assignment.submission_format,
+        'file_url', v_assignment.file_url,
+        'submission_file_url', null,
+        'requires_file', v_assignment.requires_file,
+        'allow_comments', v_assignment.allow_comments
+    );
+end;
+$$;
+
+create or replace function public.update_class_assignment(
+    p_assignment_id uuid,
+    p_professor_id uuid,
+    p_title text,
+    p_instructions text default '',
+    p_category text default 'lecture',
+    p_target_points numeric default 100,
+    p_start_date date default null,
+    p_end_date date default null,
+    p_start_time time default null,
+    p_end_time time default null,
+    p_assignment_type text default 'task',
+    p_submission_format text default 'pdf',
+    p_file_url text default null,
+    p_requires_file boolean default true,
+    p_allow_comments boolean default true
+)
+returns jsonb
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+    v_assignment public.class_assignments%rowtype;
+    v_existing public.class_assignments%rowtype;
+    v_category text := case
+        when lower(trim(coalesce(p_category, 'lecture'))) = 'laboratory' then 'laboratory'
+        else 'lecture'
+    end;
+    v_assignment_type text := lower(trim(coalesce(p_assignment_type, 'task')));
+    v_submission_format text := lower(trim(coalesce(p_submission_format, 'pdf')));
+    v_target_points numeric := greatest(coalesce(p_target_points, 100), 1);
+    v_requires_file boolean := coalesce(p_requires_file, true);
+    v_allow_comments boolean := coalesce(p_allow_comments, true);
+begin
+    if nullif(trim(p_title), '') is null then
+        raise exception 'Assignment title is required.';
+    end if;
+
+    select a.* into v_existing
+    from public.class_assignments a
+    where a.id = p_assignment_id
+      and a.professor_id = p_professor_id;
+
+    if not found then
+        raise exception 'Assignment not found or not owned by you.';
+    end if;
+
+    if v_assignment_type = 'assignment' then
+        v_assignment_type := 'task';
+    end if;
+
+    if v_assignment_type not in ('material', 'task', 'quiz', 'exam') then
+        raise exception 'Invalid assignment type.';
+    end if;
+
+    if v_submission_format not in ('pdf', 'docx', 'pptx', 'xlsx', 'image', 'zip') then
+        raise exception 'Invalid submission format.';
+    end if;
+
+    if p_start_date is not null and p_end_date is not null and p_start_date > p_end_date then
+        raise exception 'Start date must be on or before end date.';
+    end if;
+
+    if v_assignment_type <> 'material' and exists (
+        select 1
+        from public.assignment_submissions s
+        where s.assignment_id = p_assignment_id
+          and s.score is not null
+    ) then
+        raise exception 'Cannot edit a scored activity.';
+    end if;
+
+    if coalesce(v_existing.assignment_type, 'task') = 'material' and v_assignment_type <> 'material' then
+        delete from public.assignment_submissions s
+        where s.assignment_id = p_assignment_id
+          and s.response_text = 'Viewed material'
+          and s.submission_file_url is null;
+    end if;
+
+    update public.class_assignments
+    set title = trim(p_title),
+        instructions = trim(coalesce(p_instructions, '')),
+        category = v_category,
+        target_points = v_target_points,
+        start_date = case when v_assignment_type = 'material' then null else p_start_date end,
+        end_date = case when v_assignment_type = 'material' then null else p_end_date end,
+        start_time = case when v_assignment_type = 'material' then null else p_start_time end,
+        end_time = case when v_assignment_type = 'material' then null else p_end_time end,
+        assignment_type = v_assignment_type,
+        submission_format = v_submission_format,
+        file_url = coalesce(nullif(trim(coalesce(p_file_url, '')), ''), file_url),
+        requires_file = v_requires_file,
+        allow_comments = v_allow_comments
+    where id = p_assignment_id
+      and professor_id = p_professor_id
+    returning * into v_assignment;
+
+    return jsonb_build_object(
+        'id', v_assignment.id,
+        'class_id', v_assignment.class_id,
+        'professor_id', v_assignment.professor_id,
+        'title', v_assignment.title,
+        'instructions', v_assignment.instructions,
+        'category', v_assignment.category,
+        'target_points', round(v_assignment.target_points)::int,
+        'start_date', v_assignment.start_date,
+        'end_date', v_assignment.end_date,
+        'start_time', v_assignment.start_time,
+        'end_time', v_assignment.end_time,
+        'has_submitted', false,
+        'submission_text', null,
+        'submitted_at', null,
+        'edit_attempts', null,
+        'score', null,
+        'submitted_count', (
+            select count(*)::int from public.assignment_submissions s where s.assignment_id = v_assignment.id
+        ),
+        'total_students', (
+            select count(*)::int from public.class_enrollments e where e.class_id = v_assignment.class_id
+        ),
+        'created_at', v_assignment.created_at,
+        'attendance_status', null,
+        'assignment_type', v_assignment.assignment_type,
+        'submission_format', v_assignment.submission_format,
+        'file_url', v_assignment.file_url,
+        'submission_file_url', null,
+        'requires_file', v_assignment.requires_file,
+        'allow_comments', v_assignment.allow_comments
+    );
+end;
+$$;
+
+create or replace function public.get_class_assignments(
+    p_class_id uuid,
+    p_student_id uuid default null
+)
+returns table (
+    id uuid,
+    class_id uuid,
+    professor_id uuid,
+    title text,
+    instructions text,
+    category text,
+    target_points int,
+    start_date date,
+    end_date date,
+    start_time time,
+    end_time time,
+    has_submitted boolean,
+    submission_text text,
+    submitted_at timestamptz,
+    edit_attempts int,
+    score int,
+    submitted_count int,
+    total_students int,
+    created_at timestamptz,
+    attendance_status text,
+    assignment_type text,
+    submission_format text,
+    file_url text,
+    submission_file_url text,
+    requires_file boolean,
+    allow_comments boolean
+)
+language sql
+security definer
+set search_path = public
+as $$
+    with app_clock as materialized (
+        select pg_catalog.timezone(
+            'Asia/Manila',
+            pg_catalog.statement_timestamp()
+        ) as local_now
+    )
+    select
+        a.id,
+        a.class_id,
+        a.professor_id,
+        a.title,
+        a.instructions,
+        coalesce(a.category, 'lecture') as category,
+        greatest(round(coalesce(a.target_points, 100))::int, 1) as target_points,
+        a.start_date,
+        a.end_date,
+        a.start_time,
+        a.end_time,
+        (s.id is not null) as has_submitted,
+        s.response_text as submission_text,
+        s.submitted_at,
+        s.edit_attempts,
+        s.score,
+        coalesce((
+            select count(*)::int
+            from public.assignment_submissions sx
+            where sx.assignment_id = a.id
+        ), 0) as submitted_count,
+        coalesce((
+            select count(*)::int
+            from public.class_enrollments e
+            where e.class_id = a.class_id
+        ), 0) as total_students,
+        a.created_at,
+        case
+            when p_student_id is null then null
+            when exists (
+                select 1
+                from public.attendance att_student
+                where att_student.assignment_id = a.id
+                  and att_student.student_id = p_student_id
+            ) then 'present'
+            when exists (
+                select 1
+                from public.attendance att_any
+                where att_any.assignment_id = a.id
+            ) then 'absent'
+            when a.end_date is not null
+             and clock.local_now >
+                 a.end_date + coalesce(
+                     a.end_time,
+                     time '23:59:59.999999'
+                 )
+            then 'absent'
+            else 'not_checked'
+        end as attendance_status,
+        case
+            when coalesce(a.assignment_type, 'task') = 'assignment' then 'task'
+            else coalesce(a.assignment_type, 'task')
+        end as assignment_type,
+        coalesce(a.submission_format, 'pdf') as submission_format,
+        a.file_url,
+        s.submission_file_url,
+        coalesce(a.requires_file, true) as requires_file,
+        coalesce(a.allow_comments, true) as allow_comments
+    from public.class_assignments a
+    cross join app_clock clock
+    left join public.assignment_submissions s
+        on s.assignment_id = a.id
+       and s.student_id = p_student_id
+    where a.class_id = p_class_id
+      and (
+          p_student_id is null
+          or coalesce(a.assignment_type, 'task') = 'material'
+          or a.start_date is null
+          or clock.local_now >=
+             a.start_date + coalesce(
+                 a.start_time,
+                 time '00:00:00'
+             )
+      )
+    order by a.created_at desc;
+$$;
+
+create or replace function public.get_assignment_submissions(
+    p_assignment_id uuid,
+    p_professor_id uuid
+)
+returns table (
+    id uuid,
+    assignment_id uuid,
+    student_id uuid,
+    student_name text,
+    id_number text,
+    photo_url text,
+    response_text text,
+    submitted_at timestamptz,
+    edit_attempts int,
+    score int,
+    target_points int,
+    category text,
+    raw_percent numeric,
+    converted_grade numeric,
+    submission_file_url text
+)
+language sql
+security definer
+set search_path = public
+as $$
+    select
+        s.id,
+        s.assignment_id,
+        s.student_id,
+        u.full_name as student_name,
+        u.id_number,
+        u.profile_picture_url as photo_url,
+        s.response_text,
+        s.submitted_at,
+        s.edit_attempts,
+        s.score,
+        greatest(round(coalesce(a.target_points, 100))::int, 1) as target_points,
+        coalesce(a.category, 'lecture') as category,
+        round((coalesce(s.score, 0)::numeric * 100 / greatest(coalesce(a.target_points, 100), 1))::numeric, 2) as raw_percent,
+        round(((coalesce(s.score, 0)::numeric * 100 / greatest(coalesce(a.target_points, 100), 1)) * 0.625 + 37.5)::numeric, 2) as converted_grade,
+        s.submission_file_url
+    from public.assignment_submissions s
+    join public.class_assignments a on a.id = s.assignment_id
+    join public.classes c on c.id = a.class_id
+    join public.app_users u on u.id = s.student_id
+    where s.assignment_id = p_assignment_id
+      and c.professor_id = p_professor_id
+    order by s.submitted_at desc;
+$$;
+
+create or replace function public.grade_assignment_submission(
+    p_submission_id uuid,
+    p_professor_id uuid,
+    p_score int
+)
+returns jsonb
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+    v_submission public.assignment_submissions%rowtype;
+    v_assignment public.class_assignments%rowtype;
+    v_student public.app_users%rowtype;
+    v_target_points numeric;
+    v_raw_percent numeric;
+    v_converted_grade numeric;
+begin
+    select a.* into v_assignment
+    from public.assignment_submissions s
+    join public.class_assignments a on a.id = s.assignment_id
+    join public.classes c on c.id = a.class_id
+    where s.id = p_submission_id
+      and c.professor_id = p_professor_id;
+
+    if v_assignment.id is null then
+        raise exception 'You can only score submissions from your own class.';
+    end if;
+
+    v_target_points := greatest(coalesce(v_assignment.target_points, 100), 1);
+
+    if p_score < 0 or p_score::numeric > v_target_points then
+        raise exception 'Earned points must be from 0 to %.', round(v_target_points)::int;
+    end if;
+
+    update public.assignment_submissions s
+    set score = p_score
+    where s.id = p_submission_id
+    returning s.* into v_submission;
+
+    select * into v_student
+    from public.app_users
+    where id = v_submission.student_id;
+
+    v_raw_percent := round((coalesce(v_submission.score, 0)::numeric * 100 / v_target_points)::numeric, 2);
+    v_converted_grade := round((v_raw_percent * 0.625 + 37.5)::numeric, 2);
+
+    return jsonb_build_object(
+        'id', v_submission.id,
+        'assignment_id', v_submission.assignment_id,
+        'student_id', v_submission.student_id,
+        'student_name', coalesce(v_student.full_name, ''),
+        'id_number', coalesce(v_student.id_number, ''),
+        'photo_url', v_student.profile_picture_url,
+        'response_text', v_submission.response_text,
+        'submitted_at', v_submission.submitted_at,
+        'edit_attempts', v_submission.edit_attempts,
+        'score', v_submission.score,
+        'target_points', round(v_target_points)::int,
+        'category', coalesce(v_assignment.category, 'lecture'),
+        'raw_percent', v_raw_percent,
+        'converted_grade', v_converted_grade,
+        'submission_file_url', v_submission.submission_file_url
+    );
+end;
+$$;
+
+create or replace function public.submit_assignment(
+    p_assignment_id uuid,
+    p_student_id uuid,
+    p_response_text text default '',
+    p_submission_file_url text default null
+)
+returns jsonb
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+    v_assignment public.class_assignments%rowtype;
+    v_submission public.assignment_submissions%rowtype;
+    v_manila_now timestamp without time zone :=
+        pg_catalog.timezone(
+            'Asia/Manila',
+            pg_catalog.statement_timestamp()
+        );
+    v_opens_at timestamp without time zone;
+    v_closes_at timestamp without time zone;
+begin
+    select a.*
+    into v_assignment
+    from public.class_assignments a
+    join public.class_enrollments e
+        on e.class_id = a.class_id
+    where a.id = p_assignment_id
+      and e.student_id = p_student_id;
+
+    if not found then
+        raise exception 'You must be enrolled before submitting.';
+    end if;
+
+    if coalesce(v_assignment.assignment_type, 'task') = 'material' then
+        raise exception 'Materials do not accept submissions.';
+    end if;
+
+    if coalesce(v_assignment.requires_file, true)
+       and nullif(trim(coalesce(p_submission_file_url, '')), '') is null then
+        raise exception 'Submission file is required.';
+    end if;
+
+    -- Ignore a start time when no matching start date was supplied.
+    if v_assignment.start_date is not null then
+        v_opens_at :=
+            v_assignment.start_date
+            + coalesce(v_assignment.start_time, time '00:00:00');
+
+        if v_manila_now < v_opens_at then
+            raise exception
+                'Submission is not yet open. It opens at % Asia/Manila.',
+                v_opens_at;
+        end if;
+    end if;
+
+    -- Ignore an end time when no matching end date was supplied.
+    if v_assignment.end_date is not null then
+        v_closes_at :=
+            v_assignment.end_date
+            + coalesce(
+                v_assignment.end_time,
+                time '23:59:59.999999'
+            );
+
+        -- The exact end boundary remains open.
+        if v_manila_now > v_closes_at then
+            raise exception
+                'Submission window has ended. It ended at % Asia/Manila.',
+                v_closes_at;
+        end if;
+    end if;
+
+    insert into public.assignment_submissions as existing (
+        assignment_id,
+        student_id,
+        response_text,
+        submission_file_url,
+        submitted_at,
+        edit_attempts
+    )
+    values (
+        p_assignment_id,
+        p_student_id,
+        trim(coalesce(p_response_text, '')),
+        nullif(trim(coalesce(p_submission_file_url, '')), ''),
+        pg_catalog.now(),
+        0
+    )
+    on conflict (assignment_id, student_id) do update
+    set response_text = excluded.response_text,
+        submission_file_url = excluded.submission_file_url,
+        submitted_at = pg_catalog.now(),
+        edit_attempts = existing.edit_attempts + 1,
+        score = null
+    returning * into v_submission;
+
+    return pg_catalog.jsonb_build_object(
+        'id', v_submission.id,
+        'assignment_id', v_submission.assignment_id,
+        'student_id', v_submission.student_id,
+        'response_text', v_submission.response_text,
+        'submitted_at', v_submission.submitted_at,
+        'edit_attempts', v_submission.edit_attempts,
+        'score', v_submission.score,
+        'submission_file_url', v_submission.submission_file_url
+    );
+end;
+$$;
+
+create or replace function public.record_material_view(
+    p_assignment_id uuid,
+    p_student_id uuid
+)
+returns jsonb
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+    v_assignment public.class_assignments%rowtype;
+    v_submission public.assignment_submissions%rowtype;
+begin
+    select a.* into v_assignment
+    from public.class_assignments a
+    join public.class_enrollments e on e.class_id = a.class_id
+    where a.id = p_assignment_id
+      and e.student_id = p_student_id;
+
+    if v_assignment.id is null then
+        raise exception 'You must be enrolled before viewing this material.';
+    end if;
+
+    if coalesce(v_assignment.assignment_type, 'task') <> 'material' then
+        raise exception 'Only materials can be marked as viewed.';
+    end if;
+
+    insert into public.assignment_submissions (
+        assignment_id,
+        student_id,
+        response_text,
+        submitted_at,
+        edit_attempts
+    )
+    values (
+        p_assignment_id,
+        p_student_id,
+        'Viewed material',
+        now(),
+        0
+    )
+    on conflict (assignment_id, student_id) do update
+    set response_text = 'Viewed material',
+        submitted_at = public.assignment_submissions.submitted_at
+    returning * into v_submission;
+
+    return jsonb_build_object(
+        'id', v_submission.id,
+        'assignment_id', v_submission.assignment_id,
+        'student_id', v_submission.student_id,
+        'response_text', v_submission.response_text,
+        'submitted_at', v_submission.submitted_at,
+        'edit_attempts', v_submission.edit_attempts,
+        'score', v_submission.score,
+        'submission_file_url', v_submission.submission_file_url
+    );
+end;
+$$;
+
+create or replace function public.delete_class_assignment(
+    p_assignment_id uuid,
+    p_professor_id uuid
+)
+returns void
+language plpgsql
+security definer
+set search_path = public
+as $$
+begin
+    if not exists (
+        select 1
+        from public.class_assignments a
+        join public.classes c on c.id = a.class_id
+        where a.id = p_assignment_id
+          and c.professor_id = p_professor_id
+    ) then
+        raise exception 'You can only delete assignments from your own class.';
+    end if;
+
+    delete from public.class_assignments
+    where id = p_assignment_id;
+end;
+$$;
+
+create or replace function public.delete_professor_class(
+    p_professor_id uuid,
+    p_class_id uuid
+)
+returns void
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+    v_deleted_count integer := 0;
+begin
+    if not exists (
+        select 1
+        from public.app_users u
+        where u.id = p_professor_id
+          and u.role = 'professor'
+          and u.is_blocked = false
+    ) then
+        raise exception 'Professor not found.';
+    end if;
+
+    delete from public.classes c
+    where c.id = p_class_id
+      and c.professor_id = p_professor_id;
+
+    get diagnostics v_deleted_count = row_count;
+    if v_deleted_count = 0 then
+        raise exception 'Class not found or not owned by you.';
+    end if;
+end;
+$$;
+
+create or replace function public.delete_professor_subject(
+    p_professor_id uuid,
+    p_year_level text,
+    p_department text,
+    p_section text,
+    p_track text,
+    p_subject_code text
+)
+returns void
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+    v_year text := public.normalize_year_level(p_year_level);
+    v_department text := lower(trim(coalesce(p_department, '')));
+    v_section text := lower(trim(coalesce(p_section, '')));
+    v_track text := lower(trim(coalesce(p_track, '')));
+    v_subject text := upper(trim(coalesce(p_subject_code, '')));
+    v_deleted_count int := 0;
+begin
+    if v_year is null then
+        raise exception 'Year level is required.';
+    end if;
+    if nullif(v_subject, '') is null then
+        raise exception 'Subject code is required.';
+    end if;
+    if nullif(v_department, '') is null then
+        raise exception 'Department is required.';
+    end if;
+    if nullif(v_section, '') is null then
+        raise exception 'Section is required.';
+    end if;
+
+    if not exists (
+        select 1
+        from public.app_users u
+        where u.id = p_professor_id
+          and u.role = 'professor'
+          and u.is_blocked = false
+    ) then
+        raise exception 'Professor not found.';
+    end if;
+
+    delete from public.classes c
+    where c.professor_id = p_professor_id
+      and c.year_level = v_year
+      and lower(trim(coalesce(c.department, ''))) = v_department
+      and lower(trim(coalesce(c.section, ''))) = v_section
+      and lower(trim(coalesce(c.track, ''))) = v_track
+      and upper(trim(coalesce(nullif(c.subject_code, ''), c.class_code, ''))) = v_subject;
+
+    get diagnostics v_deleted_count = row_count;
+    if v_deleted_count = 0 then
+        raise exception 'Subject not found for this year.';
+    end if;
+end;
+$$;
+
+create or replace function public.get_latest_assignment_status(p_class_id uuid)
+returns table (
+    class_id uuid,
+    assignment_id uuid,
+    assignment_title text,
+    submitted_count int,
+    missing_count int,
+    ungraded_count int,
+    total_students int
+)
+language sql
+security definer
+set search_path = public
+as $$
+    with app_clock as materialized (
+        select pg_catalog.timezone(
+            'Asia/Manila',
+            pg_catalog.statement_timestamp()
+        ) as local_now
+    ),
+    latest_assignment as (
+        select a.id, a.title
+        from public.class_assignments a
+        cross join app_clock clock
+        where a.class_id = p_class_id
+          and coalesce(a.assignment_type, 'task') <> 'material'
+          and (
+              a.start_date is null
+              or clock.local_now >=
+                 a.start_date + coalesce(a.start_time, time '00:00:00')
+          )
+        order by a.created_at desc, a.id desc
+        limit 1
+    ),
+    enrolled_students as (
+        select e.student_id
+        from public.class_enrollments e
+        where e.class_id = p_class_id
+    )
+    select
+        p_class_id as class_id,
+        a.id as assignment_id,
+        a.title as assignment_title,
+        count(s.id)::int as submitted_count,
+        (count(e.student_id) - count(s.id))::int as missing_count,
+        count(s.id) filter (where s.score is null)::int as ungraded_count,
+        count(e.student_id)::int as total_students
+    from latest_assignment a
+    left join enrolled_students e on true
+    left join public.assignment_submissions s
+        on s.assignment_id = a.id
+       and s.student_id = e.student_id
+    group by a.id, a.title;
+$$;
+
+create or replace function public.get_latest_assignment_statuses(
+    p_class_ids uuid[]
+)
+returns table (
+    class_id uuid,
+    assignment_id uuid,
+    assignment_title text,
+    submitted_count int,
+    missing_count int,
+    ungraded_count int,
+    total_students int
+)
+language sql
+security definer
+set search_path = public
+as $$
+    with app_clock as materialized (
+        select pg_catalog.timezone(
+            'Asia/Manila',
+            pg_catalog.statement_timestamp()
+        ) as local_now
+    ),
+    requested_classes as (
+        select distinct
+            pg_catalog.unnest(
+                coalesce(p_class_ids, array[]::uuid[])
+            ) as class_id
+    ),
+    latest_assignment as (
+        select distinct on (a.class_id)
+            a.class_id,
+            a.id,
+            a.title
+        from public.class_assignments a
+        join requested_classes rc on rc.class_id = a.class_id
+        cross join app_clock clock
+        where coalesce(a.assignment_type, 'task') <> 'material'
+          and (
+              a.start_date is null
+              or clock.local_now >=
+                 a.start_date + coalesce(a.start_time, time '00:00:00')
+          )
+        order by a.class_id, a.created_at desc, a.id desc
+    )
+    select
+        la.class_id,
+        la.id as assignment_id,
+        la.title as assignment_title,
+        count(s.student_id)::int as submitted_count,
+        (count(enrolled.student_id) - count(s.student_id))::int as missing_count,
+        count(s.student_id) filter (where s.score is null)::int as ungraded_count,
+        count(enrolled.student_id)::int as total_students
+    from latest_assignment la
+    left join public.class_enrollments enrolled
+        on enrolled.class_id = la.class_id
+    left join public.assignment_submissions s
+        on s.assignment_id = la.id
+       and s.student_id = enrolled.student_id
+    group by la.class_id, la.id, la.title;
+$$;
+
+create or replace function public.get_professor_class_students(p_class_id uuid)
+returns table (
+    id uuid,
+    id_number text,
+    name text,
+    photo_url text,
+    year text,
+    section text,
+    completed_assignments int,
+    total_assignments int,
+    has_submitted_recent boolean
+)
+language sql
+security definer
+set search_path = public
+as $$
+    with total_assignments as (
+        select count(*)::int as cnt
+        from public.class_assignments
+        where class_id = p_class_id
+    ),
+    latest_assignment as (
+        select id
+        from public.class_assignments
+        where class_id = p_class_id
+        order by created_at desc
+        limit 1
+    )
+    select
+        u.id,
+        u.id_number,
+        u.full_name as name,
+        u.profile_picture_url as photo_url,
+        u.year_level as year,
+        u.section,
+        coalesce((
+            select count(*)::int
+            from public.assignment_submissions s
+            join public.class_assignments a on a.id = s.assignment_id
+            where a.class_id = p_class_id
+              and s.student_id = u.id
+        ), 0) as completed_assignments,
+        (select cnt from total_assignments) as total_assignments,
+        exists (
+            select 1
+            from public.assignment_submissions s
+            where s.assignment_id = (select id from latest_assignment)
+              and s.student_id = u.id
+        ) as has_submitted_recent
+    from public.class_enrollments e
+    join public.app_users u on u.id = e.student_id
+    where e.class_id = p_class_id
+    order by u.full_name asc;
+$$;
+
+create or replace function public.get_student_pending_assignments(p_student_id uuid)
+returns table (
+    assignment_id uuid,
+    class_id uuid,
+    title text,
+    instructions text,
+    category text,
+    target_points int,
+    start_date date,
+    end_date date,
+    start_time time,
+    end_time time,
+    assignment_type text,
+    submission_format text,
+    created_at timestamptz,
+    class_name text,
+    subject_code text,
+    theme_color text,
+    professor_name text,
+    requires_file boolean,
+    allow_comments boolean
+)
+language sql
+security definer
+set search_path = public
+as $$
+    with app_clock as materialized (
+        select pg_catalog.timezone(
+            'Asia/Manila',
+            pg_catalog.statement_timestamp()
+        ) as local_now
+    )
+    select
+        a.id as assignment_id,
+        a.class_id,
+        a.title,
+        a.instructions,
+        coalesce(a.category, 'lecture') as category,
+        greatest(round(coalesce(a.target_points, 100))::int, 1) as target_points,
+        a.start_date,
+        a.end_date,
+        a.start_time,
+        a.end_time,
+        case
+            when coalesce(a.assignment_type, 'task') = 'assignment' then 'task'
+            else coalesce(a.assignment_type, 'task')
+        end as assignment_type,
+        coalesce(a.submission_format, 'pdf') as submission_format,
+        a.created_at,
+        c.class_name,
+        c.subject_code,
+        c.theme_color,
+        coalesce(p.full_name, 'Professor') as professor_name,
+        coalesce(a.requires_file, true) as requires_file,
+        coalesce(a.allow_comments, true) as allow_comments
+    from public.class_assignments a
+    cross join app_clock clock
+    join public.classes c
+        on c.id = a.class_id
+    join public.class_enrollments e
+        on e.class_id = c.id
+       and e.student_id = p_student_id
+    join public.app_users p
+        on p.id = c.professor_id
+    left join public.assignment_submissions s
+        on s.assignment_id = a.id
+       and s.student_id = p_student_id
+    where s.id is null
+      and coalesce(a.assignment_type, 'task') <> 'material'
+      and (
+          a.start_date is null
+          or clock.local_now >=
+             a.start_date + coalesce(
+                 a.start_time,
+                 time '00:00:00'
+             )
+      )
+      -- Keep overdue work visible until the student submits it.
+    order by a.created_at desc;
+$$;
+
+create or replace function public.get_student_grades(p_student_id uuid)
+returns table (
+    submission_id uuid,
+    assignment_id uuid,
+    class_id uuid,
+    title text,
+    score int,
+    target_points int,
+    category text,
+    raw_percent numeric,
+    converted_grade numeric,
+    submitted_at timestamptz,
+    class_name text,
+    subject_code text,
+    professor_name text,
+    has_submitted boolean,
+    submission_text text
+)
+language sql
+security definer
+set search_path = public
+as $$
+    select
+        s.id as submission_id,
+        a.id as assignment_id,
+        a.class_id,
+        a.title,
+        s.score,
+        greatest(round(coalesce(a.target_points, 100))::int, 1) as target_points,
+        coalesce(a.category, 'lecture') as category,
+        case
+            when s.score is null then null
+            else round((s.score::numeric * 100 / greatest(coalesce(a.target_points, 100), 1))::numeric, 2)
+        end as raw_percent,
+        case
+            when s.score is null then null
+            else round(((s.score::numeric * 100 / greatest(coalesce(a.target_points, 100), 1)) * 0.625 + 37.5)::numeric, 2)
+        end as converted_grade,
+        s.submitted_at,
+        c.class_name,
+        c.subject_code,
+        coalesce(p.full_name, 'Professor') as professor_name,
+        (s.id is not null) as has_submitted,
+        s.response_text as submission_text
+    from public.class_assignments a
+    join public.classes c on c.id = a.class_id
+    join public.class_enrollments e
+        on e.class_id = c.id
+       and e.student_id = p_student_id
+    join public.app_users p on p.id = c.professor_id
+    left join public.assignment_submissions s
+        on s.assignment_id = a.id
+       and s.student_id = p_student_id
+    where coalesce(a.assignment_type, 'task') <> 'material'
+    order by a.created_at desc;
+$$;
+
+create or replace function public.create_announcement(
+    p_professor_id uuid,
+    p_title text,
+    p_subtitle text,
+    p_content text,
+    p_image_url text default null,
+    p_target_years jsonb default '[]'::jsonb
+)
+returns jsonb
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+    v_announcement public.class_announcements%rowtype;
+    v_professor public.app_users%rowtype;
+    v_years text[];
+begin
+    if nullif(trim(p_title), '') is null then
+        raise exception 'Announcement title is required.';
+    end if;
+    if nullif(trim(p_content), '') is null then
+        raise exception 'Announcement message is required.';
+    end if;
+
+    select * into v_professor
+    from public.app_users
+    where id = p_professor_id
+      and role = 'professor'
+      and is_blocked = false;
+
+    if v_professor.id is null then
+        raise exception 'Only professors can post announcements.';
+    end if;
+
+    select coalesce(array_agg(public.normalize_year_level(value)), array[]::text[])
+    into v_years
+    from jsonb_array_elements_text(coalesce(p_target_years, '[]'::jsonb)) as t(value)
+    where public.normalize_year_level(value) is not null;
+
+    if coalesce(array_length(v_years, 1), 0) = 0 then
+        v_years := array[]::text[];
+    end if;
+
+    insert into public.class_announcements (
+        professor_id,
+        target_years,
+        title,
+        subtitle,
+        content,
+        image_url
+    )
+    values (
+        p_professor_id,
+        v_years,
+        trim(p_title),
+        nullif(trim(coalesce(p_subtitle, '')), ''),
+        trim(p_content),
+        nullif(trim(coalesce(p_image_url, '')), '')
+    )
+    returning * into v_announcement;
+
+    return jsonb_build_object(
+        'id', v_announcement.id,
+        'target_years', v_announcement.target_years,
+        'title', v_announcement.title,
+        'subtitle', coalesce(v_announcement.subtitle, ''),
+        'content', v_announcement.content,
+        'image_url', v_announcement.image_url,
+        'created_at', v_announcement.created_at,
+        'updated_at', v_announcement.updated_at,
+        'professor_name', coalesce(v_professor.full_name, 'Professor'),
+        'professor_profile_pic_url', v_professor.profile_picture_url,
+        'is_read', false
+    );
+end;
+$$;
+
+create or replace function public.update_announcement(
+    p_professor_id uuid,
+    p_announcement_id uuid,
+    p_title text,
+    p_subtitle text,
+    p_content text,
+    p_image_url text default null,
+    p_target_years jsonb default '[]'::jsonb
+)
+returns jsonb
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+    v_announcement public.class_announcements%rowtype;
+    v_professor public.app_users%rowtype;
+    v_years text[];
+begin
+    if nullif(trim(p_title), '') is null then
+        raise exception 'Announcement title is required.';
+    end if;
+    if nullif(trim(p_content), '') is null then
+        raise exception 'Announcement message is required.';
+    end if;
+
+    select * into v_professor
+    from public.app_users
+    where id = p_professor_id
+      and role = 'professor'
+      and is_blocked = false;
+
+    if v_professor.id is null then
+        raise exception 'Only professors can edit announcements.';
+    end if;
+
+    select coalesce(array_agg(public.normalize_year_level(value)), array[]::text[])
+    into v_years
+    from jsonb_array_elements_text(coalesce(p_target_years, '[]'::jsonb)) as t(value)
+    where public.normalize_year_level(value) is not null;
+
+    if coalesce(array_length(v_years, 1), 0) = 0 then
+        v_years := array[]::text[];
+    end if;
+
+    update public.class_announcements
+    set title = trim(p_title),
+        subtitle = nullif(trim(coalesce(p_subtitle, '')), ''),
+        content = trim(p_content),
+        image_url = nullif(trim(coalesce(p_image_url, '')), ''),
+        target_years = v_years,
+        updated_at = now()
+    where id = p_announcement_id
+      and professor_id = p_professor_id;
+
+    select * into v_announcement
+    from public.class_announcements
+    where id = p_announcement_id
+      and professor_id = p_professor_id;
+
+    if v_announcement.id is null then
+        raise exception 'Announcement not found.';
+    end if;
+
+    return jsonb_build_object(
+        'id', v_announcement.id,
+        'target_years', v_announcement.target_years,
+        'title', v_announcement.title,
+        'subtitle', coalesce(v_announcement.subtitle, ''),
+        'content', v_announcement.content,
+        'image_url', v_announcement.image_url,
+        'created_at', v_announcement.created_at,
+        'updated_at', v_announcement.updated_at,
+        'professor_name', coalesce(v_professor.full_name, 'Professor'),
+        'professor_profile_pic_url', v_professor.profile_picture_url,
+        'is_read', false
+    );
+end;
+$$;
+
+create or replace function public.delete_announcement(
+    p_professor_id uuid,
+    p_announcement_id uuid
+)
+returns void
+language plpgsql
+security definer
+set search_path = public
+as $$
+begin
+    if not exists (
+        select 1
+        from public.app_users
+        where id = p_professor_id
+          and role = 'professor'
+          and is_blocked = false
+    ) then
+        raise exception 'Only professors can delete announcements.';
+    end if;
+
+    delete from public.class_announcements
+    where id = p_announcement_id
+      and professor_id = p_professor_id;
+
+    if not found then
+        raise exception 'Announcement not found.';
+    end if;
+end;
+$$;
+
+create or replace function public.get_student_announcements(p_student_id uuid)
+returns table (
+    id uuid,
+    target_years text[],
+    title text,
+    subtitle text,
+    content text,
+    image_url text,
+    created_at timestamptz,
+    updated_at timestamptz,
+    professor_name text,
+    professor_profile_pic_url text,
+    is_read boolean
+)
+language sql
+security definer
+set search_path = public
+as $$
+    select
+        a.id,
+        a.target_years,
+        a.title,
+        coalesce(a.subtitle, '') as subtitle,
+        a.content,
+        a.image_url,
+        a.created_at,
+        a.updated_at,
+        coalesce(p.full_name, 'Professor') as professor_name,
+        p.profile_picture_url as professor_profile_pic_url,
+        coalesce(r.is_read, false) as is_read
+    from public.class_announcements a
+    join public.app_users p on p.id = a.professor_id
+    left join public.announcement_reads r
+        on r.announcement_id = a.id
+       and r.student_id = p_student_id
+    where exists (
+        select 1
+        from public.class_enrollments e
+        join public.classes c on c.id = e.class_id
+        where e.student_id = p_student_id
+          and c.professor_id = a.professor_id
+          and (
+              coalesce(array_length(a.target_years, 1), 0) = 0
+              or c.year_level = any(a.target_years)
+          )
+    )
+    order by a.created_at desc;
+$$;
+
+create or replace function public.get_professor_announcements(p_professor_id uuid)
+returns table (
+    id uuid,
+    target_years text[],
+    title text,
+    subtitle text,
+    content text,
+    image_url text,
+    created_at timestamptz,
+    updated_at timestamptz,
+    professor_name text,
+    professor_profile_pic_url text,
+    is_read boolean
+)
+language sql
+security definer
+set search_path = public
+as $$
+    select
+        a.id,
+        a.target_years,
+        a.title,
+        coalesce(a.subtitle, '') as subtitle,
+        a.content,
+        a.image_url,
+        a.created_at,
+        a.updated_at,
+        coalesce(p.full_name, 'Professor') as professor_name,
+        p.profile_picture_url as professor_profile_pic_url,
+        false as is_read
+    from public.class_announcements a
+    join public.app_users p on p.id = a.professor_id
+    where a.professor_id = p_professor_id
+    order by a.created_at desc;
+$$;
+
+create or replace function public.toggle_announcement_read_status(
+    p_student_id uuid,
+    p_announcement_id uuid,
+    p_is_read boolean
+)
+returns void
+language plpgsql
+security definer
+set search_path = public
+as $$
+begin
+    if not exists (
+        select 1
+        from public.class_announcements a
+        where a.id = p_announcement_id
+          and exists (
+              select 1
+              from public.class_enrollments e
+              join public.classes c on c.id = e.class_id
+              where e.student_id = p_student_id
+                and c.professor_id = a.professor_id
+                and (
+                    coalesce(array_length(a.target_years, 1), 0) = 0
+                    or c.year_level = any(a.target_years)
+                )
+          )
+    ) then
+        raise exception 'Announcement not found for this student.';
+    end if;
+
+    insert into public.announcement_reads (
+        announcement_id,
+        student_id,
+        is_read,
+        updated_at
+    )
+    values (
+        p_announcement_id,
+        p_student_id,
+        p_is_read,
+        now()
+    )
+    on conflict (announcement_id, student_id) do update
+    set is_read = excluded.is_read,
+        updated_at = now();
+end;
+$$;
+
+-- Class editing: fix a mistakenly created subject (name, code, section, track).
+create or replace function public.update_class_details(
+    p_class_id uuid,
+    p_professor_id uuid,
+    p_class_name text,
+    p_subject_code text,
+    p_section text,
+    p_track text
+)
+returns jsonb
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+    v_class public.classes%rowtype;
+    v_section text := nullif(trim(coalesce(p_section, '')), '');
+    v_track text := nullif(trim(coalesce(p_track, '')), '');
+begin
+    if p_class_id is null then
+        raise exception 'Class is required.';
+    end if;
+    if nullif(trim(p_class_name), '') is null then
+        raise exception 'Class name is required.';
+    end if;
+    if nullif(trim(p_subject_code), '') is null then
+        raise exception 'Subject code is required.';
+    end if;
+
+    update public.classes c
+    set class_name = trim(p_class_name),
+        subject_name = trim(p_class_name),
+        subject_code = upper(trim(p_subject_code)),
+        section = v_section,
+        track = v_track
+    where c.id = p_class_id
+      and c.professor_id = p_professor_id
+    returning c.* into v_class;
+
+    if v_class.id is null then
+        raise exception 'You can only edit your own class.';
+    end if;
+
+    return public.professor_class_json(v_class);
+exception
+    when unique_violation then
+        raise exception 'A class with this subject code already exists for this section and track.';
+end;
+$$;
+
+-- Comment thread under every upload (material, task, quiz, exam).
+create or replace function public.create_assignment_comment(
+    p_assignment_id uuid,
+    p_author_id uuid,
+    p_content text,
+    p_visibility text default 'public'
+)
+returns jsonb
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+    v_assignment public.class_assignments%rowtype;
+    v_author public.app_users%rowtype;
+    v_visibility text := lower(trim(coalesce(p_visibility, 'public')));
+    v_comment public.assignment_comments%rowtype;
+begin
+    if nullif(trim(p_content), '') is null then
+        raise exception 'Comment cannot be empty.';
+    end if;
+    if v_visibility not in ('public', 'private') then
+        v_visibility := 'public';
+    end if;
+
+    select * into v_author
+    from public.app_users
+    where id = p_author_id;
+
+    if v_author.id is null then
+        raise exception 'User not found.';
+    end if;
+
+    select a.* into v_assignment
+    from public.class_assignments a
+    where a.id = p_assignment_id;
+
+    if v_assignment.id is null then
+        raise exception 'Assignment not found.';
+    end if;
+
+    if v_author.role = 'professor' then
+        if v_assignment.professor_id <> v_author.id then
+            raise exception 'Only the class professor can comment here.';
+        end if;
+    else
+        if not exists (
+            select 1
+            from public.class_enrollments e
+            where e.class_id = v_assignment.class_id
+              and e.student_id = p_author_id
+        ) then
+            raise exception 'You must be enrolled before commenting.';
+        end if;
+        if not coalesce(v_assignment.allow_comments, true) then
+            raise exception 'Comments are disabled for this upload.';
+        end if;
+    end if;
+
+    insert into public.assignment_comments (
+        assignment_id,
+        class_id,
+        author_id,
+        author_role,
+        visibility,
+        content
+    )
+    values (
+        v_assignment.id,
+        v_assignment.class_id,
+        v_author.id,
+        v_author.role,
+        v_visibility,
+        trim(p_content)
+    )
+    returning *
+    into v_comment;
+
+    return jsonb_build_object(
+        'id', v_comment.id,
+        'assignment_id', v_comment.assignment_id,
+        'class_id', v_comment.class_id,
+        'author_id', v_comment.author_id,
+        'author_name', v_author.full_name,
+        'author_role', v_comment.author_role,
+        'author_photo_url', v_author.profile_picture_url,
+        'visibility', v_comment.visibility,
+        'content', v_comment.content,
+        'created_at', v_comment.created_at
+    );
+end;
+$$;
+
+create or replace function public.get_assignment_comments(
+    p_assignment_id uuid,
+    p_viewer_id uuid
+)
+returns table(
+    id uuid,
+    assignment_id uuid,
+    class_id uuid,
+    author_id uuid,
+    author_name text,
+    author_role text,
+    author_photo_url text,
+    visibility text,
+    is_hidden boolean,
+    content text,
+    created_at timestamptz
+)
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+    v_class_id uuid;
+    v_is_professor boolean := false;
+    v_is_enrolled boolean := false;
+begin
+    select a.class_id into v_class_id
+    from public.class_assignments a
+    where a.id = p_assignment_id;
+
+    if v_class_id is null then
+        raise exception 'Assignment not found.';
+    end if;
+
+    select exists (
+        select 1
+        from public.classes c
+        where c.id = v_class_id
+          and c.professor_id = p_viewer_id
+    ) into v_is_professor;
+
+    if not v_is_professor then
+        select exists (
+            select 1
+            from public.class_enrollments e
+            where e.class_id = v_class_id
+              and e.student_id = p_viewer_id
+        ) into v_is_enrolled;
+
+        if not v_is_enrolled then
+            raise exception 'You must be enrolled in this class to view comments.';
+        end if;
+    end if;
+
+    return query
+    select
+        c.id,
+        c.assignment_id,
+        c.class_id,
+        c.author_id,
+        coalesce(u.full_name, 'Unknown') as author_name,
+        c.author_role,
+        u.profile_picture_url as author_photo_url,
+        c.visibility,
+        c.is_hidden,
+        c.content,
+        c.created_at
+    from public.assignment_comments c
+    join public.app_users u
+        on u.id = c.author_id
+    where c.assignment_id = p_assignment_id
+      and (v_is_professor or not c.is_hidden)
+      and (
+          v_is_professor
+          or c.visibility = 'public'
+          or c.author_id = p_viewer_id
+      )
+    order by c.created_at asc;
+end;
+$$;
+
+create or replace function public.delete_assignment_comment(
+    p_comment_id uuid,
+    p_author_id uuid
+)
+returns jsonb
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+    v_comment public.assignment_comments%rowtype;
+begin
+    select * into v_comment
+    from public.assignment_comments
+    where id = p_comment_id;
+
+    if v_comment.id is null then
+        raise exception 'Comment not found.';
+    end if;
+
+    if v_comment.author_id <> p_author_id then
+        raise exception 'You can only delete your own comment.';
+    end if;
+
+    delete from public.assignment_comments
+    where id = p_comment_id;
+
+    return jsonb_build_object('assignment_id', v_comment.assignment_id);
+end;
+$$;
+
+create or replace function public.hide_assignment_comment(
+    p_comment_id uuid,
+    p_professor_id uuid
+)
+returns jsonb
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+    v_comment public.assignment_comments%rowtype;
+begin
+    select * into v_comment
+    from public.assignment_comments
+    where id = p_comment_id;
+
+    if v_comment.id is null then
+        raise exception 'Comment not found.';
+    end if;
+
+    if not exists (
+        select 1
+        from public.classes c
+        where c.id = v_comment.class_id
+          and c.professor_id = p_professor_id
+    ) then
+        raise exception 'Only the class professor can hide comments.';
+    end if;
+
+    update public.assignment_comments
+    set is_hidden = true
+    where id = p_comment_id;
+
+    return jsonb_build_object('assignment_id', v_comment.assignment_id);
+end;
+$$;
+
+create or replace function public.unhide_assignment_comment(
+    p_comment_id uuid,
+    p_professor_id uuid
+)
+returns jsonb
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+    v_comment public.assignment_comments%rowtype;
+begin
+    select * into v_comment
+    from public.assignment_comments
+    where id = p_comment_id;
+
+    if v_comment.id is null then
+        raise exception 'Comment not found.';
+    end if;
+
+    if not exists (
+        select 1
+        from public.classes c
+        where c.id = v_comment.class_id
+          and c.professor_id = p_professor_id
+    ) then
+        raise exception 'Only the class professor can unhide comments.';
+    end if;
+
+    update public.assignment_comments
+    set is_hidden = false
+    where id = p_comment_id;
+
+    return jsonb_build_object('assignment_id', v_comment.assignment_id);
+end;
+$$;
+
+grant execute on function public.register_app_user(text, text, text, text, text) to anon, authenticated;
+grant execute on function public.login_app_user(text, text, text) to anon, authenticated;
+grant execute on function public.request_password_reset_code(text) to anon, authenticated;
+grant execute on function public.verify_password_reset_code(text, text, text) to anon, authenticated;
+grant execute on function public.current_authenticated_app_user() to anon, authenticated;
+grant execute on function public.complete_email_registration(text, text, text) to anon, authenticated;
+grant execute on function public.check_id_number_available(text) to anon, authenticated;
+grant execute on function public.get_app_users_public() to anon, authenticated;
+grant execute on function public.update_app_user_profile_picture(uuid, text) to anon, authenticated;
+grant execute on function public.update_app_user_extended_profile(uuid, text, text, text, text, text, text) to anon, authenticated;
+grant execute on function public.create_class(uuid, text, text, text, text, text, text, text, text, text[], time, time, text, text, text) to anon, authenticated;
+grant execute on function public.create_professor_class(uuid, text, text, text, text, text, text, text, text, text[], time, time, text, text) to anon, authenticated;
+grant execute on function public.get_professor_classes(uuid) to anon, authenticated;
+grant execute on function public.get_student_classes(uuid) to anon, authenticated;
+grant execute on function public.join_class_by_code(uuid, text) to anon, authenticated;
+grant execute on function public.get_class_join_requests(uuid, uuid) to anon, authenticated;
+grant execute on function public.get_class_join_requests_for_classes(uuid[], uuid) to anon, authenticated;
+grant execute on function public.approve_class_join_request(uuid, uuid) to anon, authenticated;
+grant execute on function public.reject_class_join_request(uuid, uuid) to anon, authenticated;
+grant execute on function public.get_classmates(uuid) to anon, authenticated;
+grant execute on function public.update_class_details(uuid, uuid, text, text, text, text) to anon, authenticated;
+grant execute on function public.get_assignment_attendance(uuid, uuid) to anon, authenticated;
+grant execute on function public.record_assignment_attendance_by_id_number(uuid, uuid, text) to anon, authenticated;
+grant execute on function public.create_class_assignment(uuid, uuid, text, text, text, numeric, date, date, time, time, text, text, text, boolean, boolean) to anon, authenticated;
+grant execute on function public.update_class_assignment(uuid, uuid, text, text, text, numeric, date, date, time, time, text, text, text, boolean, boolean) to anon, authenticated;
+grant execute on function public.get_class_assignments(uuid, uuid) to anon, authenticated;
+grant execute on function public.get_assignment_submissions(uuid, uuid) to anon, authenticated;
+grant execute on function public.grade_assignment_submission(uuid, uuid, integer, text) to anon, authenticated;
+grant execute on function public.submit_assignment(uuid, uuid, text, text) to anon, authenticated;
+grant execute on function public.record_material_view(uuid, uuid) to anon, authenticated;
+grant execute on function public.delete_class_assignment(uuid, uuid) to anon, authenticated;
+grant execute on function public.delete_professor_class(uuid, uuid) to anon, authenticated;
+grant execute on function public.delete_professor_subject(uuid, uuid) to anon, authenticated;
+grant execute on function public.get_latest_assignment_status(uuid) to anon, authenticated;
+grant execute on function public.get_latest_assignment_statuses(uuid[]) to anon, authenticated;
+grant execute on function public.get_professor_class_students(uuid) to anon, authenticated;
+grant execute on function public.get_student_pending_assignments(uuid) to anon, authenticated;
+grant execute on function public.get_student_grades(uuid) to anon, authenticated;
+grant execute on function public.create_assignment_comment(uuid, uuid, text, text) to anon, authenticated;
+grant execute on function public.get_assignment_comments(uuid, uuid) to anon, authenticated;
+grant execute on function public.delete_assignment_comment(uuid, uuid) to anon, authenticated;
+grant execute on function public.hide_assignment_comment(uuid, uuid) to anon, authenticated;
+grant execute on function public.unhide_assignment_comment(uuid, uuid) to anon, authenticated;
+grant execute on function public.create_announcement(uuid, text, text, text, text, jsonb) to anon, authenticated;
+grant execute on function public.update_announcement(uuid, uuid, text, text, text, text, jsonb) to anon, authenticated;
+grant execute on function public.delete_announcement(uuid, uuid) to anon, authenticated;
+grant execute on function public.get_student_announcements(uuid) to anon, authenticated;
+grant execute on function public.get_professor_announcements(uuid) to anon, authenticated;
+grant execute on function public.toggle_announcement_read_status(uuid, uuid, boolean) to anon, authenticated;

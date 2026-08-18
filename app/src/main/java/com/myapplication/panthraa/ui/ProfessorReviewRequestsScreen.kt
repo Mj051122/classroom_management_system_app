@@ -2,6 +2,9 @@ package com.myapplication.panthraa.ui
 
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.clickable
+import androidx.compose.animation.core.FastOutLinearInEasing
+import androidx.compose.animation.core.LinearOutSlowInEasing
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -53,7 +56,7 @@ internal fun ProfessorReviewRequestsScreen(
     onLoadJoinRequests: (List<String>) -> Unit,
     onRefreshJoinRequests: (List<String>) -> Unit,
     onApproveRequest: (String, List<String>) -> Unit,
-    onRejectRequest: (String, List<String>) -> Unit,
+    onRejectRequest: (String, List<String>, String) -> Unit,
     onBack: () -> Unit,
 ) {
     val classIds = remember(classes) { classes.map { it.id }.distinct().sorted() }
@@ -185,6 +188,10 @@ internal fun ProfessorReviewRequestsScreen(
                         classIdsToRefresh = classIds,
                         isUpdating = uiState.isUpdatingJoinRequest,
                         internetRequired = internetRequired,
+                        modifier = Modifier.animateItem(
+                            fadeInSpec = tween(240, easing = LinearOutSlowInEasing),
+                            fadeOutSpec = tween(160, easing = FastOutLinearInEasing),
+                        ),
                         onApproveRequest = onApproveRequest,
                         onRejectRequest = onRejectRequest,
                     )

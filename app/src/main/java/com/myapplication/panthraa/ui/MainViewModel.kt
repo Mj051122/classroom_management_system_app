@@ -862,6 +862,28 @@ class MainViewModel(
         }
     }
 
+    fun loadStudentJoinRequests() {
+        val student = _uiState.value.currentUser?.takeIf { it.role.equals("student", ignoreCase = true) } ?: return
+        if (isOfflineWriteBlocked(readOnlyMessage = "Internet required to load join requests.")) {
+            return
+        }
+        viewModelScope.launch {
+            _uiState.update { it.copy(isLoadingStudentJoinRequests = true) }
+            runCatching { classRepository.getMyClassJoinRequests(student.id) }
+                .onSuccess { requests ->
+                    _uiState.update {
+                        it.copy(studentJoinRequests = requests, isLoadingStudentJoinRequests = false)
+                    }
+                }
+                .onFailure { error ->
+                    if (handleConnectivityFailure(error)) return@onFailure
+                    _uiState.update {
+                        it.copy(isLoadingStudentJoinRequests = false, message = ClassRepository.readableError(error))
+                    }
+                }
+        }
+    }
+
     fun approveClassJoinRequest(requestId: String, classIdsToRefresh: List<String>) {
         val professor = _uiState.value.currentUser ?: return
         if (isOfflineWriteBlocked()) return
@@ -903,12 +925,12 @@ class MainViewModel(
         }
     }
 
-    fun rejectClassJoinRequest(requestId: String, classIdsToRefresh: List<String>) {
+    fun rejectClassJoinRequest(requestId: String, classIdsToRefresh: List<String>, reason: String = "") {
         val professor = _uiState.value.currentUser ?: return
         if (isOfflineWriteBlocked()) return
         viewModelScope.launch {
             _uiState.update { it.copy(isUpdatingJoinRequest = true, message = null) }
-            runCatching { classRepository.rejectClassJoinRequest(requestId, professor.id) }
+            runCatching { classRepository.rejectClassJoinRequest(requestId, professor.id, reason) }
                 .onSuccess {
                     classRepository.invalidateJoinRequests(classIdsToRefresh, professor.id)
                     runCatching { classRepository.getClassJoinRequests(classIdsToRefresh, professor.id) }
@@ -1400,6 +1422,7 @@ class MainViewModel(
                             message = "Join request sent. Wait for professor approval.",
                         )
                     }
+                    loadStudentJoinRequests()
                 }
                 .onFailure { error ->
                     val message = ClassRepository.readableError(error)
@@ -1669,6 +1692,32 @@ class MainViewModel(
                         it.copy(
                             isLoadingTaskReminders = false,
                             message = TaskRepository.readableError(error),
+                        )
+                    }
+                }
+        }
+    }
+
+    fun loadFacultyNotifications() {
+        val targetUser = _uiState.value.currentUser ?: return
+        if (!targetUser.role.equals("professor", ignoreCase = true)) return
+        if (_uiState.value.isLoadingFacultyNotifications) return
+        viewModelScope.launch {
+            _uiState.update { it.copy(isLoadingFacultyNotifications = true, message = null) }
+            announcementRepository.getFacultyNotifications(CachePolicy.FORCE_REFRESH)
+                .onSuccess { notifications ->
+                    _uiState.update {
+                        it.copy(
+                            facultyNotifications = notifications,
+                            isLoadingFacultyNotifications = false,
+                        )
+                    }
+                }
+                .onFailure { error ->
+                    _uiState.update {
+                        it.copy(
+                            isLoadingFacultyNotifications = false,
+                            message = AnnouncementRepository.readableError(error),
                         )
                     }
                 }
@@ -2143,6 +2192,44 @@ class MainViewModel(
         _uiState.update { it.copy(message = null) }
     }
 
+    fun setStudentIrregular(studentId: String, isIrregular: Boolean) {
+        if (isOfflineWriteBlocked()) return
+        viewModelScope.launch {
+            _uiState.update {
+                it.copy(
+                    isUpdatingProfileDetails = true,
+                    message = null,
+                )
+            }
+            runCatching { repository.setStudentIrregular(studentId, isIrregular) }
+                .onSuccess {
+                    var cachedUser: AppUser? = null
+                    _uiState.update { state ->
+                        val updatedUser = state.users.firstOrNull { it.id == studentId }
+                            ?.copy(isIrregular = isIrregular)
+                        cachedUser = updatedUser
+                        state.copy(
+                            users = state.users.map {
+                                if (it.id == studentId) it.copy(isIrregular = isIrregular) else it
+                            },
+                            isUpdatingProfileDetails = false,
+                            message = if (isIrregular) "Student marked as irregular." else "Irregular status removed.",
+                        )
+                    }
+                    cachedUser?.let { offlineCacheStore?.saveUser(it) }
+                }
+                .onFailure { error ->
+                    AppUserRepository.readableError(error)
+                    _uiState.update {
+                        it.copy(
+                            isUpdatingProfileDetails = false,
+                            message = "Failed to update irregular status.",
+                        )
+                    }
+                }
+        }
+    }
+
     private fun launchPullRefresh(
         surface: RefreshSurface,
         onStart: (MainUiState) -> MainUiState = { it },
@@ -2190,10 +2277,14 @@ class MainViewModel(
                     val statuses = runCatching {
                         classRepository.getLatestAssignmentStatuses(classes.map { it.id }, cachePolicy)
                     }.getOrDefault(emptyMap())
+                    val myJoinRequests = runCatching {
+                        classRepository.getMyClassJoinRequests(targetUser.id)
+                    }.getOrDefault(emptyList())
                     _uiState.update {
                         it.copy(
                             studentClasses = classes,
                             assignmentStatuses = statuses,
+                            studentJoinRequests = myJoinRequests,
                             isLoadingClasses = false,
                             isOfflineMode = false,
                             lastOnlineRefreshFailed = false,
