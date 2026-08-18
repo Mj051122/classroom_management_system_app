@@ -588,6 +588,7 @@ fun MainScreen(
                     onJoinClass = viewModel::joinClass,
                     onApproveJoinRequest = viewModel::approveClassJoinRequest,
                     onRejectJoinRequest = viewModel::rejectClassJoinRequest,
+                    onLoadStudentJoinRequests = viewModel::loadStudentJoinRequests,
                     onCreateAssignment = { classId, title, instructions, category, targetPoints, startDate, endDate, startTime, endTime, assignmentType, submissionFormat, requiresFile, allowComments, fileUri ->
                         viewModel.createClassAssignment(classId, title, instructions, category, targetPoints, startDate, endDate, startTime, endTime, assignmentType, submissionFormat, requiresFile, allowComments, fileUri)
                     },
@@ -641,6 +642,11 @@ fun MainScreen(
                         viewModel.updateProfessorClass(classId, className, subjectCode, section, track)
                     },
                     onDeleteClass = viewModel::deleteProfessorClass,
+                    onOpenPeople = {
+                        navController.navigate("people") {
+                            launchSingleTop = true
+                        }
+                    },
                 )
             }
             composable(BottomTab.Tasks.route) {
@@ -674,6 +680,18 @@ fun MainScreen(
                         viewModel.updateProfessorAnnouncement(context, announcementId, title, subtitle, content, targetYears, imageUri, existingImageUrl)
                     },
                     onDeleteAnnouncement = viewModel::deleteProfessorAnnouncement,
+                )
+            }
+            composable("people") {
+                FacultyPeopleScreen(
+                    users = uiState.users,
+                    isLoading = uiState.isLoadingUsers,
+                    internetRequired = uiState.isOfflineMode || uiState.connectivityStatus != ConnectivityStatus.Online,
+                    isUpdating = uiState.isUpdatingProfileDetails,
+                    onLoadUsers = viewModel::loadUsers,
+                    onRefreshUsers = viewModel::refreshUsers,
+                    onSetIrregular = viewModel::setStudentIrregular,
+                    onBack = { navController.popBackStack() },
                 )
             }
         }

@@ -19,6 +19,8 @@ data class AppUser(
     val year: String? = null,
     val section: String? = null,
     val track: String? = null,
+    @SerialName("is_irregular")
+    val isIrregular: Boolean = false,
     val bio: String? = null,
     @SerialName("phone_number")
     val phoneNumber: String? = null,

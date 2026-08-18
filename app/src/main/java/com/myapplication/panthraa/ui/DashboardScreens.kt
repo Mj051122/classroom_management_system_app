@@ -66,6 +66,7 @@ import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Email
+import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.filled.PersonAdd
 import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.Event
@@ -213,7 +214,7 @@ fun HomeScreen(
     onLoadJoinRequests: (List<String>) -> Unit = {},
     onRefreshJoinRequests: (List<String>) -> Unit = {},
     onApproveJoinRequest: (String, List<String>) -> Unit = { _, _ -> },
-    onRejectJoinRequest: (String, List<String>) -> Unit = { _, _ -> },
+    onRejectJoinRequest: (String, List<String>, String) -> Unit = { _, _, _ -> },
     onOpenClass: (StudentClass) -> Unit = {},
     onOpenTask: (TaskReminder) -> Unit = {},
     onOpenClassesTab: () -> Unit = {},
@@ -2177,7 +2178,7 @@ internal fun ProfessorHomeDashboard(
     onLoadJoinRequests: (List<String>) -> Unit = {},
     onRefreshJoinRequests: (List<String>) -> Unit = {},
     onApproveJoinRequest: (String, List<String>) -> Unit = { _, _ -> },
-    onRejectJoinRequest: (String, List<String>) -> Unit = { _, _ -> },
+    onRejectJoinRequest: (String, List<String>, String) -> Unit = { _, _, _ -> },
     dashboardRootResetToken: Int = 0,
 ) {
     var showProfileDetails by remember { mutableStateOf(false) }
@@ -3842,15 +3843,20 @@ internal fun StudentLearningSummaryCard(
 ) {
     val hasGrades = uiState.studentGrades.isNotEmpty()
     val overallSummary = remember(uiState.studentGrades) { buildOverallGradeSummary(uiState.studentGrades) }
+    val isLoadingGrades = uiState.isLoadingStudentGrades && !hasGrades
     val gradeValue = when {
-        uiState.isLoadingStudentGrades && !hasGrades -> "..."
+        isLoadingGrades -> "..."
         hasGrades -> formatGradeNumber(overallSummary.finalGrade)
         else -> "--"
     }
     val gradeLabel = when {
-        uiState.isLoadingStudentGrades && !hasGrades -> "Computing"
+        isLoadingGrades -> "Computing"
         hasGrades -> gradeStatusLabel(overallSummary.finalGrade)
         else -> "No grades yet"
+    }
+    val gradeColor = when {
+        hasGrades -> gradeTone(overallSummary.finalGrade)
+        else -> Color(0xFF64748B)
     }
     val subjectGradeMap = remember(uiState.studentGrades) {
         buildStudentSubjectGradeSummaries(uiState.studentGrades).associateBy { it.classId }
@@ -3858,89 +3864,130 @@ internal fun StudentLearningSummaryCard(
     val submittedTotal = uiState.studentClasses.sumOf { it.completedAssignments }
     val totalWork = uiState.studentClasses.sumOf { it.totalAssignments }
     val pendingCount = uiState.pendingAssignments.size
+    val submissionPercentLabel = if (totalWork > 0) "${submittedTotal * 100 / totalWork}%" else "--"
 
     Card(
         modifier = Modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(18.dp),
+        shape = RoundedCornerShape(16.dp),
         colors = CardDefaults.cardColors(containerColor = Color.White),
-        elevation = CardDefaults.cardElevation(defaultElevation = 3.dp),
+        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
         border = BorderStroke(1.dp, Color(0xFFE2E8F0)),
     ) {
         Column(modifier = Modifier.fillMaxWidth()) {
-            Row(
+            Box(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .background(
-                        Brush.linearGradient(
-                            colors = listOf(Color(0xFF0F2E9E), Color(0xFF5B38F5), Color(0xFF12A8A0)),
-                            start = Offset(0f, 0f),
-                            end = Offset(900f, 220f),
-                        ),
-                    )
+                    .height(3.dp)
+                    .background(gradeColor),
+            )
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
                     .clickable(onClick = onOpenGrades)
-                    .padding(horizontal = 16.dp, vertical = 14.dp),
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(12.dp),
+                    .padding(horizontal = 18.dp, vertical = 16.dp),
+                verticalArrangement = Arrangement.spacedBy(12.dp),
             ) {
-                Column(
-                    modifier = Modifier.weight(1f),
-                    verticalArrangement = Arrangement.spacedBy(2.dp),
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.SpaceBetween,
                 ) {
-                    Text(
-                        text = "Learning Summary",
-                        color = Color.White,
-                        fontWeight = FontWeight.ExtraBold,
-                        fontSize = 16.sp,
-                    )
-                    Text(
-                        text = if (hasGrades) {
-                            "Overall average across your ${uiState.studentClasses.size} subject${if (uiState.studentClasses.size == 1) "" else "s"}."
-                        } else {
-                            "Your progress until your first graded work."
-                        },
-                        color = Color.White.copy(alpha = 0.78f),
-                        fontSize = 11.sp,
-                        lineHeight = 13.sp,
-                    )
+                    Column(
+                        modifier = Modifier.weight(1f),
+                        verticalArrangement = Arrangement.spacedBy(3.dp),
+                    ) {
+                        Text(
+                            text = "Learning summary",
+                            color = Color(0xFF0F172A),
+                            fontWeight = FontWeight.ExtraBold,
+                            fontSize = 14.sp,
+                            letterSpacing = 0.6.sp,
+                        )
+                        Text(
+                            text = if (hasGrades) {
+                                "Overall average across your ${uiState.studentClasses.size} subject${if (uiState.studentClasses.size == 1) "" else "s"}."
+                            } else {
+                                "Your progress until your first graded work."
+                            },
+                            color = Color(0xFF64748B),
+                            fontSize = 11.5.sp,
+                            lineHeight = 14.sp,
+                        )
+                    }
+                    Column(horizontalAlignment = Alignment.End) {
+                        Text(
+                            text = gradeValue,
+                            color = gradeColor,
+                            fontWeight = FontWeight.ExtraBold,
+                            fontSize = 34.sp,
+                            lineHeight = 36.sp,
+                            letterSpacing = (-0.5).sp,
+                        )
+                        Text(
+                            text = gradeLabel,
+                            color = gradeColor,
+                            fontWeight = FontWeight.Bold,
+                            fontSize = 10.5.sp,
+                            letterSpacing = 0.4.sp,
+                        )
+                    }
                 }
-                Column(horizontalAlignment = Alignment.End) {
-                    Text(
-                        text = gradeValue,
-                        color = Color.White,
-                        fontWeight = FontWeight.ExtraBold,
-                        fontSize = 26.sp,
-                        lineHeight = 28.sp,
-                    )
-                    Text(
-                        text = gradeLabel,
-                        color = Color.White.copy(alpha = 0.85f),
-                        fontWeight = FontWeight.ExtraBold,
-                        fontSize = 11.sp,
-                    )
+                GradeStandingBar(
+                    fillFraction = if (hasGrades) (overallSummary.finalGrade / 100.0).coerceIn(0.0, 1.0).toFloat() else 0f,
+                    color = gradeColor,
+                    isLoading = isLoadingGrades,
+                )
+                if (hasGrades) {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(6.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        Text(
+                            text = "Lecture ${formatGradeNumber(overallSummary.lecturePercent)}%",
+                            color = Color(0xFF64748B),
+                            fontSize = 11.sp,
+                            fontWeight = FontWeight.SemiBold,
+                        )
+                        Box(
+                            modifier = Modifier
+                                .size(3.dp)
+                                .background(Color(0xFFCBD5E1), CircleShape),
+                        )
+                        Text(
+                            text = "Laboratory ${formatGradeNumber(overallSummary.laboratoryPercent)}%",
+                            color = Color(0xFF64748B),
+                            fontSize = 11.sp,
+                            fontWeight = FontWeight.SemiBold,
+                        )
+                    }
                 }
             }
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(vertical = 12.dp),
-                horizontalArrangement = Arrangement.SpaceEvenly,
+                    .padding(horizontal = 18.dp, vertical = 14.dp),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
-                LearningSummaryStat(
+                SummaryMetric(
                     value = pendingCount.toString(),
                     label = "Pending",
                     onClick = onOpenPendingTasks,
+                    modifier = Modifier.weight(1f),
                 )
                 LearningSummaryDivider()
-                LearningSummaryStat(
-                    value = if (totalWork > 0) "$submittedTotal/$totalWork" else "--",
+                SummaryMetric(
+                    value = submissionPercentLabel,
                     label = "Submitted",
+                    onClick = onOpenGrades,
+                    modifier = Modifier.weight(1f),
                 )
                 LearningSummaryDivider()
-                LearningSummaryStat(
+                SummaryMetric(
                     value = uiState.studentClasses.size.toString(),
                     label = "Subjects",
                     onClick = onOpenGrades,
+                    modifier = Modifier.weight(1f),
                 )
             }
             if (uiState.studentClasses.isNotEmpty()) {
@@ -3948,98 +3995,163 @@ internal fun StudentLearningSummaryCard(
                 Column(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .padding(horizontal = 14.dp, vertical = 10.dp),
-                    verticalArrangement = Arrangement.spacedBy(10.dp),
+                        .padding(horizontal = 18.dp, vertical = 14.dp),
+                    verticalArrangement = Arrangement.spacedBy(14.dp),
                 ) {
                     uiState.studentClasses.forEach { classItem ->
                         val subjectSummary = subjectGradeMap[classItem.id]
                         val progress = classItem.progressPercentage.coerceIn(0, 100)
                         val gradeTint = if (subjectSummary != null) gradeTone(subjectSummary.finalGrade) else Color(0xFF94A3B8)
-                        Row(
+                        Column(
                             modifier = Modifier.fillMaxWidth(),
-                            verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.spacedBy(10.dp),
+                            verticalArrangement = Arrangement.spacedBy(6.dp),
                         ) {
-                            Column(
-                                modifier = Modifier.weight(1f),
-                                verticalArrangement = Arrangement.spacedBy(3.dp),
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                verticalAlignment = Alignment.CenterVertically,
                             ) {
-                                Text(
-                                    text = classItem.displayClassName,
-                                    color = Color(0xFF0F172A),
-                                    fontWeight = FontWeight.ExtraBold,
-                                    fontSize = 12.5.sp,
-                                    maxLines = 1,
-                                    overflow = TextOverflow.Ellipsis,
-                                )
-                                Text(
-                                    text = "${classItem.completedAssignments}/${classItem.totalAssignments} submitted",
-                                    color = Color(0xFF64748B),
-                                    fontSize = 10.5.sp,
-                                    fontWeight = FontWeight.SemiBold,
-                                )
-                                Box(
-                                    modifier = Modifier
-                                        .fillMaxWidth()
-                                        .height(5.dp)
-                                        .clip(RoundedCornerShape(999.dp))
-                                        .background(Color(0xFFE2E8F0)),
+                                Column(
+                                    modifier = Modifier.weight(1f),
+                                    verticalArrangement = Arrangement.spacedBy(1.dp),
                                 ) {
-                                    Box(
-                                        modifier = Modifier
-                                            .fillMaxWidth(progress / 100f)
-                                            .height(5.dp)
-                                            .clip(RoundedCornerShape(999.dp))
-                                            .background(if (subjectSummary != null) gradeTint else PanthraaBlue),
+                                    Text(
+                                        text = classItem.displayClassName,
+                                        color = Color(0xFF0F172A),
+                                        fontWeight = FontWeight.ExtraBold,
+                                        fontSize = 13.sp,
+                                        maxLines = 1,
+                                        overflow = TextOverflow.Ellipsis,
+                                    )
+                                    Text(
+                                        text = "${classItem.completedAssignments}/${classItem.totalAssignments} submitted",
+                                        color = Color(0xFF94A3B8),
+                                        fontSize = 11.sp,
+                                        fontWeight = FontWeight.SemiBold,
                                     )
                                 }
-                            }
-                            Box(
-                                modifier = Modifier
-                                    .clip(RoundedCornerShape(999.dp))
-                                    .background(gradeTint.copy(alpha = if (subjectSummary != null) 0.12f else 0.08f))
-                                    .padding(horizontal = 9.dp, vertical = 4.dp),
-                            ) {
                                 Text(
                                     text = if (subjectSummary != null) formatGradeNumber(subjectSummary.finalGrade) else "No grade",
-                                    color = if (subjectSummary != null) gradeTint else Color(0xFF64748B),
-                                    fontSize = 10.5.sp,
+                                    color = gradeTint,
+                                    fontSize = 13.sp,
                                     fontWeight = FontWeight.ExtraBold,
+                                    letterSpacing = (-0.3).sp,
+                                )
+                            }
+                            val animatedProgress by animateFloatAsState(
+                                targetValue = progress / 100f,
+                                animationSpec = tween(durationMillis = 700),
+                                label = "subject_progress",
+                            )
+                            Box(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .height(3.dp)
+                                    .clip(RoundedCornerShape(2.dp))
+                                    .background(Color(0xFFE8EDF3)),
+                            ) {
+                                Box(
+                                    modifier = Modifier
+                                        .fillMaxWidth(animatedProgress)
+                                        .height(3.dp)
+                                        .clip(RoundedCornerShape(2.dp))
+                                        .background(if (subjectSummary != null) gradeTint else PanthraaBlue),
                                 )
                             }
                         }
                     }
                 }
+            } else if (!isLoadingGrades) {
+                HorizontalDivider(color = Color(0xFFE2E8F0), thickness = 1.dp)
+                Text(
+                    text = "No graded work yet. Your learning standing will appear here after your first graded task.",
+                    color = Color(0xFF64748B),
+                    fontWeight = FontWeight.SemiBold,
+                    fontSize = 12.sp,
+                    lineHeight = 15.sp,
+                    modifier = Modifier.padding(horizontal = 18.dp, vertical = 14.dp),
+                )
             }
         }
     }
 }
 
 @Composable
-private fun LearningSummaryStat(
+private fun GradeStandingBar(
+    fillFraction: Float,
+    color: Color,
+    isLoading: Boolean,
+) {
+    if (isLoading) {
+        val transition = rememberInfiniteTransition(label = "grade_loading")
+        val pulse by transition.animateFloat(
+            initialValue = 0.25f,
+            targetValue = 0.9f,
+            animationSpec = infiniteRepeatable(tween(durationMillis = 800), RepeatMode.Reverse),
+            label = "grade_pulse",
+        )
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(3.dp)
+                .clip(RoundedCornerShape(2.dp))
+                .background(Color(0xFFE8EDF3)),
+        ) {
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth(pulse)
+                    .height(3.dp)
+                    .clip(RoundedCornerShape(2.dp))
+                    .background(Color(0xFFCBD5E1)),
+            )
+        }
+        return
+    }
+    val animatedFill by animateFloatAsState(
+        targetValue = fillFraction,
+        animationSpec = tween(durationMillis = 900),
+        label = "standing_fill",
+    )
+    Box(
+        modifier = Modifier
+            .fillMaxWidth()
+            .height(3.dp)
+            .clip(RoundedCornerShape(2.dp))
+            .background(Color(0xFFE8EDF3)),
+    ) {
+        Box(
+            modifier = Modifier
+                .fillMaxWidth(animatedFill)
+                .height(3.dp)
+                .clip(RoundedCornerShape(2.dp))
+                .background(color),
+        )
+    }
+}
+
+@Composable
+private fun SummaryMetric(
     value: String,
     label: String,
+    modifier: Modifier = Modifier,
     onClick: (() -> Unit)? = null,
 ) {
     Column(
-        modifier = Modifier
-            .clip(RoundedCornerShape(12.dp))
+        modifier = modifier
             .then(if (onClick != null) Modifier.clickable(onClick = onClick) else Modifier)
-            .padding(horizontal = 14.dp, vertical = 6.dp),
-        horizontalAlignment = Alignment.CenterHorizontally,
+            .padding(vertical = 2.dp),
         verticalArrangement = Arrangement.spacedBy(1.dp),
     ) {
         Text(
             text = value,
             color = Color(0xFF0F172A),
             fontWeight = FontWeight.ExtraBold,
-            fontSize = 17.sp,
-            lineHeight = 18.sp,
+            fontSize = 20.sp,
+            lineHeight = 22.sp,
         )
         Text(
             text = label,
             color = Color(0xFF64748B),
-            fontSize = 10.5.sp,
+            fontSize = 11.sp,
             fontWeight = FontWeight.SemiBold,
         )
     }
@@ -4604,11 +4716,11 @@ internal fun ProfessorGradeMonitorScreen(
                 .fillMaxWidth()
                 .weight(1f),
         ) {
-        LazyColumn(
-            modifier = Modifier
-                .fillMaxSize()
-                .panthraaScreenBackground(),
-            contentPadding = PaddingValues(
+LazyColumn(
+        modifier = Modifier
+            .fillMaxSize()
+            .panthraaScreenBackground(),
+        contentPadding = PaddingValues(
                 top = innerPadding.calculateTopPadding() + 12.dp,
                 bottom = innerPadding.calculateBottomPadding() + 92.dp,
                 start = 16.dp,

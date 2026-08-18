@@ -53,7 +53,7 @@ internal fun ProfessorReviewRequestsScreen(
     onLoadJoinRequests: (List<String>) -> Unit,
     onRefreshJoinRequests: (List<String>) -> Unit,
     onApproveRequest: (String, List<String>) -> Unit,
-    onRejectRequest: (String, List<String>) -> Unit,
+    onRejectRequest: (String, List<String>, String) -> Unit,
     onBack: () -> Unit,
 ) {
     val classIds = remember(classes) { classes.map { it.id }.distinct().sorted() }

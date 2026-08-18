@@ -24,6 +24,10 @@ data class ClassJoinRequest(
     val year: String? = null,
     val section: String? = null,
     val track: String? = null,
+    @SerialName("is_irregular")
+    val isIrregular: Boolean = false,
+    @SerialName("rejection_reason")
+    val rejectionReason: String? = null,
     @SerialName("requested_at")
     val requestedAt: String? = null,
 )

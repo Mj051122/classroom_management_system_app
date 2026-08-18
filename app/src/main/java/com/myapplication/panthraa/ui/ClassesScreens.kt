@@ -79,6 +79,7 @@ import androidx.compose.material.icons.outlined.Insights
 import androidx.compose.material.icons.outlined.CreateNewFolder
 import androidx.compose.material.icons.outlined.Lightbulb
 import androidx.compose.material.icons.outlined.MenuBook
+import androidx.compose.material.icons.outlined.PeopleAlt
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.AssistChip
 import androidx.compose.material3.Button
@@ -164,6 +165,7 @@ import com.myapplication.panthraa.model.PendingAssignment
 import com.myapplication.panthraa.model.ProfessorClass
 import com.myapplication.panthraa.model.StudentClass
 import com.myapplication.panthraa.model.StudentGrade
+import com.myapplication.panthraa.model.StudentJoinRequest
 import com.myapplication.panthraa.model.TaskReminder
 import com.airbnb.lottie.compose.LottieAnimation
 import com.airbnb.lottie.compose.LottieCompositionSpec
@@ -205,9 +207,10 @@ fun ClassesScreen(
     onRefreshProfessorStudents: (String) -> Unit,
     onRefreshAttendance: (String) -> Unit,
     onRefreshJoinRequests: (List<String>) -> Unit,
+    onLoadStudentJoinRequests: () -> Unit = {},
     onJoinClass: (String) -> Unit,
     onApproveJoinRequest: (String, List<String>) -> Unit,
-    onRejectJoinRequest: (String, List<String>) -> Unit,
+    onRejectJoinRequest: (String, List<String>, String) -> Unit,
     onCreateAssignment: (String, String, String, String, Int, String?, String?, String?, String?, String, String, Boolean, Boolean, Uri?) -> Unit,
     onUpdateAssignment: (String, String, String, String, Int, String?, String?, String?, String?, String, String, Boolean, Boolean, Uri?) -> Unit,
     onLoadAssignmentSubmissions: (String) -> Unit,
@@ -236,6 +239,7 @@ fun ClassesScreen(
     onCreateClass: (String, String, String, String, String, String, String?, Uri?, String, List<String>, String, String) -> Unit,
     onUpdateClass: (String, String, String, String, String) -> Unit = { _, _, _, _, _ -> },
     onDeleteClass: (String) -> Unit = {},
+    onOpenPeople: () -> Unit = {},
 ) {
     var selectedClass by remember { mutableStateOf<StudentClass?>(null) }
     var viewingClassmatesFor by remember { mutableStateOf<StudentClass?>(null) }
@@ -281,6 +285,9 @@ fun ClassesScreen(
 
     LaunchedEffect(currentUser.id, currentUser.role) {
         onLoadClasses(currentUser)
+        if (currentUser.role.equals("student", ignoreCase = true)) {
+            onLoadStudentJoinRequests()
+        }
     }
 
     LaunchedEffect(classToOpenFromDashboard?.id) {
@@ -716,6 +723,7 @@ fun ClassesScreen(
                     createClassSubjectCode = ""
                     showCreateDialog = true
                 },
+                onOpenPeople = onOpenPeople,
             )
             if (internetRequired) {
                 InternetRequiredHint()
@@ -726,6 +734,22 @@ fun ClassesScreen(
         }
 
         if (currentUser.role.equals("student", ignoreCase = true)) {
+            if (uiState.studentJoinRequests.isNotEmpty()) {
+                item {
+                    Text(
+                        text = "Join requests",
+                        color = Color(0xFF0F172A),
+                        fontWeight = FontWeight.ExtraBold,
+                        fontSize = 16.sp,
+                        modifier = Modifier.padding(start = 4.dp, top = 4.dp),
+                    )
+                }
+                items(uiState.studentJoinRequests, key = { it.id }) { joinRequest ->
+                    StudentJoinRequestCard(
+                        joinRequest = joinRequest,
+                    )
+                }
+            }
             if (!uiState.isLoadingClasses && uiState.studentClasses.isEmpty()) {
                 item {
                     PanthraaEmptyState(
@@ -841,6 +865,7 @@ internal fun ClassesRootHeader(
     isJoiningClass: Boolean,
     onJoinClass: () -> Unit,
     onCreateClass: () -> Unit,
+    onOpenPeople: () -> Unit = {},
 ) {
     val totalClasses = professorClasses.size
     val activeYears = ProfessorClassYearOptions.count { option ->
@@ -907,25 +932,44 @@ internal fun ClassesRootHeader(
                     )
                 }
             } else if (isProfessor) {
-                Button(
-                    onClick = onCreateClass,
-                    enabled = canCreateClass,
-                    shape = RoundedCornerShape(14.dp),
-                    contentPadding = PaddingValues(horizontal = 14.dp, vertical = 10.dp),
-                    colors = ButtonDefaults.buttonColors(
-                        containerColor = PanthraaBlue,
-                        contentColor = Color.White,
-                        disabledContainerColor = Color(0xFFE2E8F0),
-                        disabledContentColor = Color(0xFF94A3B8),
-                    ),
-                    modifier = Modifier.heightIn(min = 44.dp),
-                ) {
-                    Icon(Icons.Filled.Add, contentDescription = null, modifier = Modifier.size(18.dp))
-                    Text(
-                        text = "New",
-                        modifier = Modifier.padding(start = 6.dp),
-                        fontWeight = FontWeight.ExtraBold,
-                    )
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Button(
+                        onClick = onOpenPeople,
+                        shape = RoundedCornerShape(14.dp),
+                        contentPadding = PaddingValues(horizontal = 14.dp, vertical = 10.dp),
+                        colors = ButtonDefaults.buttonColors(
+                            containerColor = Color(0xFFF1F5F9),
+                            contentColor = Color(0xFF0F172A),
+                        ),
+                        modifier = Modifier.heightIn(min = 44.dp),
+                    ) {
+                        Icon(Icons.Outlined.PeopleAlt, contentDescription = null, modifier = Modifier.size(18.dp))
+                        Text(
+                            text = "People",
+                            modifier = Modifier.padding(start = 6.dp),
+                            fontWeight = FontWeight.ExtraBold,
+                        )
+                    }
+                    Button(
+                        onClick = onCreateClass,
+                        enabled = canCreateClass,
+                        shape = RoundedCornerShape(14.dp),
+                        contentPadding = PaddingValues(horizontal = 14.dp, vertical = 10.dp),
+                        colors = ButtonDefaults.buttonColors(
+                            containerColor = PanthraaBlue,
+                            contentColor = Color.White,
+                            disabledContainerColor = Color(0xFFE2E8F0),
+                            disabledContentColor = Color(0xFF94A3B8),
+                        ),
+                        modifier = Modifier.heightIn(min = 44.dp),
+                    ) {
+                        Icon(Icons.Filled.Add, contentDescription = null, modifier = Modifier.size(18.dp))
+                        Text(
+                            text = "New",
+                            modifier = Modifier.padding(start = 6.dp),
+                            fontWeight = FontWeight.ExtraBold,
+                        )
+                    }
                 }
             }
         }
@@ -1527,7 +1571,7 @@ internal fun ProfessorJoinRequestsPage(
     isRefreshing: Boolean,
     onRefreshJoinRequests: (List<String>) -> Unit,
     onApproveRequest: (String, List<String>) -> Unit,
-    onRejectRequest: (String, List<String>) -> Unit,
+    onRejectRequest: (String, List<String>, String) -> Unit,
     onBack: () -> Unit,
 ) {
     val classIds = remember(subjectGroup.classes) { subjectGroup.classes.map { it.id } }
@@ -1594,9 +1638,10 @@ internal fun JoinRequestCard(
     isUpdating: Boolean,
     internetRequired: Boolean,
     onApproveRequest: (String, List<String>) -> Unit,
-    onRejectRequest: (String, List<String>) -> Unit,
+    onRejectRequest: (String, List<String>, String) -> Unit,
 ) {
     val enabled = !internetRequired && !isUpdating
+    var showRejectDialog by remember { mutableStateOf(false) }
     val detailRows = listOfNotNull(
         "Year" to (profileYearLabel(request.year) ?: "N/A"),
         "Course" to (cleanRequestDetail(request.course) ?: "N/A"),
@@ -1642,13 +1687,21 @@ internal fun JoinRequestCard(
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis,
                     )
-                    Text(
-                        text = "ID: ${request.idNumber.ifBlank { "N/A" }}",
-                        color = Color(0xFF64748B),
-                        fontSize = 12.sp,
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis,
-                    )
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(6.dp),
+                    ) {
+                        Text(
+                            text = "ID: ${request.idNumber.ifBlank { "N/A" }}",
+                            color = Color(0xFF64748B),
+                            fontSize = 12.sp,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis,
+                        )
+                        if (request.isIrregular) {
+                            IrregularBadge()
+                        }
+                    }
                 }
             }
 
@@ -1692,7 +1745,7 @@ internal fun JoinRequestCard(
                 horizontalArrangement = Arrangement.spacedBy(8.dp),
             ) {
                 Button(
-                    onClick = { onRejectRequest(request.id, classIdsToRefresh) },
+                    onClick = { showRejectDialog = true },
                     enabled = enabled,
                     modifier = Modifier.weight(1f),
                     shape = RoundedCornerShape(16.dp),
@@ -1729,6 +1782,192 @@ internal fun JoinRequestCard(
                     text = "Internet required.",
                     color = Color(0xFFB91C1C),
                     fontWeight = FontWeight.SemiBold,
+                    fontSize = 12.sp,
+                )
+            }
+        }
+    }
+
+    if (showRejectDialog) {
+        RejectJoinRequestDialog(
+            studentName = request.name.ifBlank { "this student" },
+            isSubmitting = isUpdating,
+            onDismiss = { showRejectDialog = false },
+            onConfirm = { reason ->
+                onRejectRequest(request.id, classIdsToRefresh, reason)
+                showRejectDialog = false
+            },
+        )
+    }
+}
+
+@Composable
+internal fun RejectJoinRequestDialog(
+    studentName: String,
+    isSubmitting: Boolean,
+    onDismiss: () -> Unit,
+    onConfirm: (String) -> Unit,
+) {
+    var reason by remember { mutableStateOf("") }
+
+    AlertDialog(
+        onDismissRequest = { if (!isSubmitting) onDismiss() },
+        title = {
+            Text(
+                text = "Reject $studentName?",
+                color = Color(0xFF0F172A),
+                fontWeight = FontWeight.ExtraBold,
+                fontSize = 18.sp,
+            )
+        },
+        text = {
+            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                Text(
+                    text = "The student will see this reason on their side. You can leave it blank.",
+                    color = Color(0xFF475569),
+                    fontSize = 13.sp,
+                )
+                OutlinedTextField(
+                    value = reason,
+                    onValueChange = { reason = it.take(300) },
+                    enabled = !isSubmitting,
+                    modifier = Modifier.fillMaxWidth(),
+                    label = { Text("Reason (optional)") },
+                    placeholder = { Text("e.g. Missing prerequisites") },
+                    minLines = 2,
+                    maxLines = 4,
+                    shape = RoundedCornerShape(14.dp),
+                )
+            }
+        },
+        confirmButton = {
+            Button(
+                onClick = { onConfirm(reason.trim()) },
+                enabled = !isSubmitting,
+                shape = RoundedCornerShape(12.dp),
+                colors = ButtonDefaults.buttonColors(
+                    containerColor = Color(0xFFBE123C),
+                    contentColor = Color.White,
+                ),
+            ) {
+                Text(if (isSubmitting) "Rejecting..." else "Reject", fontWeight = FontWeight.Bold)
+            }
+        },
+        dismissButton = {
+            TextButton(
+                onClick = onDismiss,
+                enabled = !isSubmitting,
+            ) {
+                Text("Cancel", color = Color(0xFF475569), fontWeight = FontWeight.Bold)
+            }
+        },
+        containerColor = Color.White,
+        shape = RoundedCornerShape(20.dp),
+    )
+}
+
+@Composable
+internal fun StudentJoinRequestCard(
+    joinRequest: StudentJoinRequest,
+) {
+    val isPending = joinRequest.status.equals("pending", ignoreCase = true)
+    val reason = joinRequest.rejectionReason?.takeIf { it.isNotBlank() }
+    val className = listOfNotNull(
+        joinRequest.subjectCode.takeIf { it.isNotBlank() },
+        joinRequest.className.takeIf { it.isNotBlank() },
+    ).distinct().joinToString(" · ").ifBlank { "this class" }
+    val statusColor = if (isPending) Color(0xFFB45309) else Color(0xFFBE123C)
+    val statusBackground = if (isPending) Color(0xFFFEF3C7) else Color(0xFFFFE4E6)
+    val statusBorder = if (isPending) Color(0xFFFDE68A) else Color(0xFFFECDD3)
+
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        colors = CardDefaults.cardColors(containerColor = Color.White),
+        border = BorderStroke(1.dp, Color(0xFFE2E8F0)),
+        elevation = CardDefaults.cardElevation(defaultElevation = 1.dp),
+        shape = RoundedCornerShape(16.dp),
+    ) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(14.dp),
+            verticalArrangement = Arrangement.spacedBy(10.dp),
+        ) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Box(
+                    modifier = Modifier
+                        .clip(RoundedCornerShape(14.dp))
+                        .background(statusBackground)
+                        .border(1.dp, statusBorder, RoundedCornerShape(14.dp))
+                        .padding(horizontal = 10.dp, vertical = 6.dp),
+                ) {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Icon(
+                            imageVector = if (isPending) Icons.Outlined.Insights else Icons.Filled.Close,
+                            contentDescription = null,
+                            modifier = Modifier.size(15.dp),
+                            tint = statusColor,
+                        )
+                        Text(
+                            text = if (isPending) "Waiting for approval" else "Request rejected",
+                            color = statusColor,
+                            fontWeight = FontWeight.Bold,
+                            fontSize = 12.sp,
+                            modifier = Modifier.padding(start = 5.dp),
+                        )
+                    }
+                }
+            }
+            Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                Text(
+                    text = className,
+                    color = Color(0xFF0F172A),
+                    fontWeight = FontWeight.ExtraBold,
+                    fontSize = 15.sp,
+                    maxLines = 2,
+                    overflow = TextOverflow.Ellipsis,
+                )
+                Text(
+                    text = "Sent ${joinRequest.requestedAt?.let { displayAssignmentCreatedAt(it) } ?: "recently"}",
+                    color = Color(0xFF64748B),
+                    fontSize = 12.sp,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                )
+            }
+            if (reason != null) {
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clip(RoundedCornerShape(12.dp))
+                        .background(Color(0xFFF8FAFC))
+                        .border(1.dp, Color(0xFFE2E8F0), RoundedCornerShape(12.dp))
+                        .padding(horizontal = 12.dp, vertical = 10.dp),
+                    verticalArrangement = Arrangement.spacedBy(3.dp),
+                ) {
+                    Text(
+                        text = "Professor's note",
+                        color = Color(0xFF475569),
+                        fontWeight = FontWeight.Bold,
+                        fontSize = 11.sp,
+                    )
+                    Text(
+                        text = reason,
+                        color = Color(0xFF0F172A),
+                        fontSize = 13.sp,
+                    )
+                }
+            }
+            if (isPending) {
+                Text(
+                    text = "You'll be notified once the professor responds.",
+                    color = Color(0xFF64748B),
+                    fontSize = 12.sp,
+                )
+            } else {
+                Text(
+                    text = "You can try joining again with the class invite code.",
+                    color = Color(0xFF64748B),
                     fontSize = 12.sp,
                 )
             }
