@@ -11,6 +11,7 @@ import com.myapplication.panthraa.data.OfflineImageCache
 import com.myapplication.panthraa.data.OfflineReviewCacheStore
 import com.myapplication.panthraa.data.TaskRepository
 import com.myapplication.panthraa.data.AnnouncementRepository
+import com.myapplication.panthraa.data.NotificationRepository
 import com.myapplication.panthraa.data.UploadNotificationHelper
 import com.myapplication.panthraa.model.AppUser
 import com.myapplication.panthraa.model.AssignmentComment
@@ -26,12 +27,14 @@ class MainViewModel(
     private val classRepository: ClassRepository = ClassRepository(),
     private val taskRepository: TaskRepository = TaskRepository(),
     private val announcementRepository: AnnouncementRepository = AnnouncementRepository(),
+    private val notificationRepository: NotificationRepository = NotificationRepository(),
 ) : ViewModel() {
     private val _uiState = MutableStateFlow(MainUiState())
     val uiState: StateFlow<MainUiState> = _uiState
     private var offlineCacheStore: OfflineReviewCacheStore? = null
     private var appContext: Context? = null
     private val activeMaterialViewRequests = mutableSetOf<String>()
+    private val visualUnreadNotificationIds = mutableSetOf<Long>()
 
     fun setCurrentUser(user: AppUser) {
         val previousUser = _uiState.value.currentUser
@@ -1698,29 +1701,63 @@ class MainViewModel(
         }
     }
 
-    fun loadFacultyNotifications() {
-        val targetUser = _uiState.value.currentUser ?: return
-        if (!targetUser.role.equals("professor", ignoreCase = true)) return
-        if (_uiState.value.isLoadingFacultyNotifications) return
+    fun loadNotifications(
+        user: AppUser? = _uiState.value.currentUser,
+        cachePolicy: CachePolicy = CachePolicy.USE_FRESH,
+    ) {
+        val targetUser = user ?: return
+        if (_uiState.value.isLoadingNotifications) return
         viewModelScope.launch {
-            _uiState.update { it.copy(isLoadingFacultyNotifications = true, message = null) }
-            announcementRepository.getFacultyNotifications(CachePolicy.FORCE_REFRESH)
+            _uiState.update { it.copy(isLoadingNotifications = true, message = null) }
+            runCatching { notificationRepository.getNotifications(targetUser.id, cachePolicy) }
                 .onSuccess { notifications ->
+                    val mergedNotifications = notifications.map { notification ->
+                        notification.copy(
+                            isRead = notification.isRead && notification.id !in visualUnreadNotificationIds
+                        )
+                    }
                     _uiState.update {
                         it.copy(
-                            facultyNotifications = notifications,
-                            isLoadingFacultyNotifications = false,
+                            notifications = mergedNotifications,
+                            isLoadingNotifications = false,
                         )
                     }
                 }
                 .onFailure { error ->
+                    if (handleConnectivityFailure(error)) return@onFailure
                     _uiState.update {
                         it.copy(
-                            isLoadingFacultyNotifications = false,
-                            message = AnnouncementRepository.readableError(error),
+                            isLoadingNotifications = false,
+                            message = NotificationRepository.readableError(error),
                         )
                     }
                 }
+        }
+    }
+
+    fun markNotificationRead(notificationId: Long) {
+        val targetUser = _uiState.value.currentUser ?: return
+        visualUnreadNotificationIds.remove(notificationId)
+        _uiState.update { state ->
+            state.copy(
+                notifications = state.notifications.map { notification ->
+                    if (notification.id == notificationId) notification.copy(isRead = true) else notification
+                }
+            )
+        }
+        viewModelScope.launch {
+            notificationRepository.markAsRead(targetUser.id, notificationId)
+        }
+    }
+
+    fun markNotificationUnread(notificationId: Long) {
+        visualUnreadNotificationIds.add(notificationId)
+        _uiState.update { state ->
+            state.copy(
+                notifications = state.notifications.map { notification ->
+                    if (notification.id == notificationId) notification.copy(isRead = false) else notification
+                }
+            )
         }
     }
 

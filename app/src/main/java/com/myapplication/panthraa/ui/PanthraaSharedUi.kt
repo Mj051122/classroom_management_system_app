@@ -45,6 +45,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.navigationBarsPadding
+import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBarsPadding
@@ -76,6 +77,8 @@ import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.filled.Logout
 import androidx.compose.material.icons.automirrored.filled.OpenInNew
 import androidx.compose.material.icons.filled.Description
+import androidx.compose.material.icons.filled.Notifications
+import androidx.compose.material.icons.outlined.Notifications
 import androidx.compose.material.icons.outlined.Insights
 import androidx.compose.material.icons.outlined.Lightbulb
 import androidx.compose.material3.AlertDialog
@@ -532,6 +535,40 @@ internal fun PanthraaIconAction(
             tint = if (enabled) tint else Color(0xFFCBD5E1),
             modifier = Modifier.size(22.dp),
         )
+    }
+}
+
+@Composable
+internal fun NotificationBellButton(
+    unreadCount: Int,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    Box(modifier = modifier) {
+        PanthraaIconAction(
+            icon = if (unreadCount > 0) Icons.Filled.Notifications else Icons.Outlined.Notifications,
+            contentDescription = "Notifications",
+            onClick = onClick,
+        )
+        if (unreadCount > 0) {
+            val label = if (unreadCount > 99) "99+" else unreadCount.toString()
+            Box(
+                modifier = Modifier
+                    .align(Alignment.TopEnd)
+                    .offset(x = 2.dp, y = 2.dp)
+                    .clip(RoundedCornerShape(50))
+                    .background(Color(0xFFEF4444))
+                    .padding(horizontal = 5.dp, vertical = 1.dp),
+                contentAlignment = Alignment.Center,
+            ) {
+                Text(
+                    text = label,
+                    color = Color.White,
+                    fontSize = 9.sp,
+                    fontWeight = FontWeight.ExtraBold,
+                )
+            }
+        }
     }
 }
 
