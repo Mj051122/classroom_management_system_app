@@ -1698,6 +1698,32 @@ class MainViewModel(
         }
     }
 
+    fun loadFacultyNotifications() {
+        val targetUser = _uiState.value.currentUser ?: return
+        if (!targetUser.role.equals("professor", ignoreCase = true)) return
+        if (_uiState.value.isLoadingFacultyNotifications) return
+        viewModelScope.launch {
+            _uiState.update { it.copy(isLoadingFacultyNotifications = true, message = null) }
+            announcementRepository.getFacultyNotifications(CachePolicy.FORCE_REFRESH)
+                .onSuccess { notifications ->
+                    _uiState.update {
+                        it.copy(
+                            facultyNotifications = notifications,
+                            isLoadingFacultyNotifications = false,
+                        )
+                    }
+                }
+                .onFailure { error ->
+                    _uiState.update {
+                        it.copy(
+                            isLoadingFacultyNotifications = false,
+                            message = AnnouncementRepository.readableError(error),
+                        )
+                    }
+                }
+        }
+    }
+
     fun loadAnnouncements(
         user: AppUser? = _uiState.value.currentUser,
         cachePolicy: CachePolicy = CachePolicy.USE_FRESH,

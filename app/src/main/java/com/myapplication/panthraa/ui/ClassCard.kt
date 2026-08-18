@@ -7,6 +7,8 @@ import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.foundation.interaction.collectIsPressedAsState
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -36,6 +38,9 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.tween
+import androidx.compose.animation.core.LinearOutSlowInEasing
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -45,6 +50,7 @@ import androidx.compose.ui.graphics.ImageBitmap
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.asImageBitmap
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
@@ -61,6 +67,7 @@ fun StudentClassCard(
     classItem: StudentClass,
     onOpenClass: () -> Unit,
     onViewClassmates: () -> Unit,
+    modifier: Modifier = Modifier,
 ) {
     val accent = themeAccentColor(classItem.themeColor)
     val deepAccent = darkerClassAccent(accent)
@@ -70,11 +77,17 @@ fun StudentClassCard(
         classItem.progressPercentage.toFloat()
     }.coerceIn(0f, 100f)
     val bitmap = rememberImageBitmap(imageUrl = classItem.coverImageUrl, imageUri = null)
+    val cardInteraction = remember { MutableInteractionSource() }
 
     Card(
-        modifier = Modifier
+        modifier = modifier
             .fillMaxWidth()
-            .clickable(onClick = onOpenClass),
+            .pressScale(cardInteraction)
+            .clickable(
+                interactionSource = cardInteraction,
+                indication = null,
+                onClick = onOpenClass,
+            ),
         colors = CardDefaults.cardColors(containerColor = Color.Transparent),
         border = BorderStroke(1.dp, Color.White.copy(alpha = 0.55f)),
         elevation = CardDefaults.cardElevation(defaultElevation = 5.dp),
@@ -639,6 +652,11 @@ private fun ClassCover(
     viewButtonText: String = "View classmates",
 ) {
     val bitmap = rememberImageBitmap(imageUrl = imageUrl, imageUri = imageUri)
+    val imageAlpha by animateFloatAsState(
+        targetValue = if (bitmap != null) 1f else 0f,
+        animationSpec = tween(220, easing = LinearOutSlowInEasing),
+        label = "coverImageAlpha",
+    )
 
     Box(
         modifier = Modifier
@@ -654,7 +672,9 @@ private fun ClassCover(
             Image(
                 bitmap = bitmap,
                 contentDescription = "Class cover image",
-                modifier = Modifier.fillMaxSize(),
+                modifier = Modifier
+                    .fillMaxSize()
+                    .graphicsLayer { alpha = imageAlpha },
                 contentScale = ContentScale.Crop,
             )
         } else {
@@ -712,6 +732,11 @@ private fun ProfessorAvatar(
     modifier: Modifier = Modifier,
 ) {
     val bitmap = rememberImageBitmap(imageUrl = imageUrl, imageUri = null)
+    val imageAlpha by animateFloatAsState(
+        targetValue = if (bitmap != null) 1f else 0f,
+        animationSpec = tween(220, easing = LinearOutSlowInEasing),
+        label = "professorAvatarAlpha",
+    )
 
     Box(
         modifier = modifier
@@ -724,7 +749,9 @@ private fun ProfessorAvatar(
             Image(
                 bitmap = bitmap,
                 contentDescription = "$name profile photo",
-                modifier = Modifier.fillMaxSize(),
+                modifier = Modifier
+                    .fillMaxSize()
+                    .graphicsLayer { alpha = imageAlpha },
                 contentScale = ContentScale.Crop,
             )
         } else {

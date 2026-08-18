@@ -14,6 +14,8 @@ import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.animation.core.animateDpAsState
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.tween
+import androidx.compose.animation.core.FastOutLinearInEasing
+import androidx.compose.animation.core.LinearOutSlowInEasing
 import androidx.compose.animation.core.animateFloat
 import androidx.compose.animation.core.infiniteRepeatable
 import androidx.compose.animation.core.rememberInfiniteTransition
@@ -26,6 +28,7 @@ import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.foundation.interaction.collectIsPressedAsState
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -736,17 +739,32 @@ fun ClassesScreen(
         if (currentUser.role.equals("student", ignoreCase = true)) {
             if (uiState.studentJoinRequests.isNotEmpty()) {
                 item {
+                    var joinSectionEntered by remember { mutableStateOf(false) }
+                    LaunchedEffect(Unit) { joinSectionEntered = true }
                     Text(
                         text = "Join requests",
                         color = Color(0xFF0F172A),
                         fontWeight = FontWeight.ExtraBold,
                         fontSize = 16.sp,
-                        modifier = Modifier.padding(start = 4.dp, top = 4.dp),
+                        modifier = Modifier
+                            .padding(start = 4.dp, top = 4.dp)
+                            .aliveEntrance(entered = joinSectionEntered),
                     )
                 }
-                items(uiState.studentJoinRequests, key = { it.id }) { joinRequest ->
+                itemsIndexed(uiState.studentJoinRequests, key = { _, request -> request.id }) { index, joinRequest ->
+                    var cardEntered by remember(joinRequest.id) { mutableStateOf(false) }
+                    LaunchedEffect(joinRequest.id) { cardEntered = true }
                     StudentJoinRequestCard(
                         joinRequest = joinRequest,
+                        modifier = Modifier
+                            .animateItem(
+                                fadeInSpec = tween(240, easing = LinearOutSlowInEasing),
+                                fadeOutSpec = tween(160, easing = FastOutLinearInEasing),
+                            )
+                            .aliveEntrance(
+                                entered = cardEntered,
+                                delayMillis = (index * 40).coerceAtMost(160),
+                            ),
                     )
                 }
             }
@@ -762,6 +780,10 @@ fun ClassesScreen(
             items(uiState.studentClasses, key = { it.id }) { classItem ->
                 StudentClassCard(
                     classItem = classItem,
+                    modifier = Modifier.animateItem(
+                        fadeInSpec = tween(240, easing = LinearOutSlowInEasing),
+                        fadeOutSpec = tween(160, easing = FastOutLinearInEasing),
+                    ),
                     onOpenClass = { selectedClass = classItem },
                     onViewClassmates = {
                         viewingClassmatesFor = classItem
@@ -1622,6 +1644,10 @@ internal fun ProfessorJoinRequestsPage(
                     classIdsToRefresh = classIds,
                     isUpdating = uiState.isUpdatingJoinRequest,
                     internetRequired = internetRequired,
+                    modifier = Modifier.animateItem(
+                        fadeInSpec = tween(240, easing = LinearOutSlowInEasing),
+                        fadeOutSpec = tween(160, easing = FastOutLinearInEasing),
+                    ),
                     onApproveRequest = onApproveRequest,
                     onRejectRequest = onRejectRequest,
                 )
@@ -1637,11 +1663,14 @@ internal fun JoinRequestCard(
     classIdsToRefresh: List<String>,
     isUpdating: Boolean,
     internetRequired: Boolean,
+    modifier: Modifier = Modifier,
     onApproveRequest: (String, List<String>) -> Unit,
     onRejectRequest: (String, List<String>, String) -> Unit,
 ) {
     val enabled = !internetRequired && !isUpdating
     var showRejectDialog by remember { mutableStateOf(false) }
+    val rejectInteraction = remember { MutableInteractionSource() }
+    val approveInteraction = remember { MutableInteractionSource() }
     val detailRows = listOfNotNull(
         "Year" to (profileYearLabel(request.year) ?: "N/A"),
         "Course" to (cleanRequestDetail(request.course) ?: "N/A"),
@@ -1654,7 +1683,7 @@ internal fun JoinRequestCard(
     ).distinct().joinToString(" · ").ifBlank { "this class" }
 
     Card(
-        modifier = Modifier.fillMaxWidth(),
+        modifier = modifier.fillMaxWidth(),
         colors = CardDefaults.cardColors(containerColor = Color.White),
         border = BorderStroke(1.dp, Color(0xFFE2E8F0)),
         elevation = CardDefaults.cardElevation(defaultElevation = 1.dp),
@@ -1747,7 +1776,10 @@ internal fun JoinRequestCard(
                 Button(
                     onClick = { showRejectDialog = true },
                     enabled = enabled,
-                    modifier = Modifier.weight(1f),
+                    interactionSource = rejectInteraction,
+                    modifier = Modifier
+                        .weight(1f)
+                        .pressScale(rejectInteraction, pressedScale = 0.96f),
                     shape = RoundedCornerShape(16.dp),
                     colors = ButtonDefaults.buttonColors(
                         containerColor = Color(0xFFFFE4E6),
@@ -1763,7 +1795,10 @@ internal fun JoinRequestCard(
                 Button(
                     onClick = { onApproveRequest(request.id, classIdsToRefresh) },
                     enabled = enabled,
-                    modifier = Modifier.weight(1f),
+                    interactionSource = approveInteraction,
+                    modifier = Modifier
+                        .weight(1f)
+                        .pressScale(approveInteraction, pressedScale = 0.96f),
                     shape = RoundedCornerShape(16.dp),
                     colors = ButtonDefaults.buttonColors(
                         containerColor = Color(0xFF047857),
@@ -1809,6 +1844,7 @@ internal fun RejectJoinRequestDialog(
     onConfirm: (String) -> Unit,
 ) {
     var reason by remember { mutableStateOf("") }
+    val confirmInteraction = remember { MutableInteractionSource() }
 
     AlertDialog(
         onDismissRequest = { if (!isSubmitting) onDismiss() },
@@ -1844,6 +1880,8 @@ internal fun RejectJoinRequestDialog(
             Button(
                 onClick = { onConfirm(reason.trim()) },
                 enabled = !isSubmitting,
+                interactionSource = confirmInteraction,
+                modifier = Modifier.pressScale(confirmInteraction, pressedScale = 0.96f),
                 shape = RoundedCornerShape(12.dp),
                 colors = ButtonDefaults.buttonColors(
                     containerColor = Color(0xFFBE123C),
@@ -1869,6 +1907,7 @@ internal fun RejectJoinRequestDialog(
 @Composable
 internal fun StudentJoinRequestCard(
     joinRequest: StudentJoinRequest,
+    modifier: Modifier = Modifier,
 ) {
     val isPending = joinRequest.status.equals("pending", ignoreCase = true)
     val reason = joinRequest.rejectionReason?.takeIf { it.isNotBlank() }
@@ -1881,7 +1920,7 @@ internal fun StudentJoinRequestCard(
     val statusBorder = if (isPending) Color(0xFFFDE68A) else Color(0xFFFECDD3)
 
     Card(
-        modifier = Modifier.fillMaxWidth(),
+        modifier = modifier.fillMaxWidth(),
         colors = CardDefaults.cardColors(containerColor = Color.White),
         border = BorderStroke(1.dp, Color(0xFFE2E8F0)),
         elevation = CardDefaults.cardElevation(defaultElevation = 1.dp),
