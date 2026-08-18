@@ -157,6 +157,7 @@ import androidx.navigation.compose.composable
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
 import com.myapplication.panthraa.R
+import com.myapplication.panthraa.data.CachePolicy
 import com.myapplication.panthraa.data.OfflineImageCache
 import com.myapplication.panthraa.model.AppUser
 import com.myapplication.panthraa.model.AssignmentSubmission
@@ -664,6 +665,30 @@ fun MainScreen(
                             launchSingleTop = true
                         }
                     },
+                    onLoadNotifications = {
+                        viewModel.loadNotifications()
+                    },
+                    onOpenNotifications = {
+                        navController.navigate("notifications") {
+                            launchSingleTop = true
+                        }
+                    },
+                )
+            }
+            composable("notifications") {
+                NotificationsScreen(
+                    uiState = uiState,
+                    innerPadding = screenPadding,
+                    internetRequired = uiState.isOfflineMode || uiState.connectivityStatus != ConnectivityStatus.Online,
+                    onLoadNotifications = {
+                        viewModel.loadNotifications(cachePolicy = CachePolicy.FORCE_REFRESH)
+                    },
+                    onPullRefresh = {
+                        viewModel.loadNotifications(cachePolicy = CachePolicy.FORCE_REFRESH)
+                    },
+                    onMarkRead = viewModel::markNotificationRead,
+                    onMarkUnread = viewModel::markNotificationUnread,
+                    onBack = { navController.popBackStack() },
                 )
             }
             composable(BottomTab.Tasks.route) {

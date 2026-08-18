@@ -243,6 +243,8 @@ fun ClassesScreen(
     onUpdateClass: (String, String, String, String, String) -> Unit = { _, _, _, _, _ -> },
     onDeleteClass: (String) -> Unit = {},
     onOpenPeople: () -> Unit = {},
+    onLoadNotifications: () -> Unit = {},
+    onOpenNotifications: () -> Unit = {},
 ) {
     var selectedClass by remember { mutableStateOf<StudentClass?>(null) }
     var viewingClassmatesFor by remember { mutableStateOf<StudentClass?>(null) }
@@ -291,6 +293,7 @@ fun ClassesScreen(
         if (currentUser.role.equals("student", ignoreCase = true)) {
             onLoadStudentJoinRequests()
         }
+        onLoadNotifications()
     }
 
     LaunchedEffect(classToOpenFromDashboard?.id) {
@@ -717,6 +720,8 @@ fun ClassesScreen(
                 canJoinClass = canJoinClass,
                 canCreateClass = isProfessor && !internetRequired && !uiState.isCreatingClass,
                 isJoiningClass = uiState.isJoiningClass,
+                notificationUnreadCount = uiState.notifications.count { !it.isRead },
+                onOpenNotifications = onOpenNotifications,
                 onJoinClass = { showJoinDialog = true },
                 onCreateClass = {
                     createClassYear = null
@@ -885,6 +890,8 @@ internal fun ClassesRootHeader(
     canJoinClass: Boolean,
     canCreateClass: Boolean,
     isJoiningClass: Boolean,
+    notificationUnreadCount: Int = 0,
+    onOpenNotifications: () -> Unit = {},
     onJoinClass: () -> Unit,
     onCreateClass: () -> Unit,
     onOpenPeople: () -> Unit = {},
@@ -933,28 +940,41 @@ internal fun ClassesRootHeader(
                 )
             }
             if (isStudent) {
-                Button(
-                    onClick = onJoinClass,
-                    enabled = canJoinClass,
-                    shape = RoundedCornerShape(14.dp),
-                    contentPadding = PaddingValues(horizontal = 14.dp, vertical = 10.dp),
-                    colors = ButtonDefaults.buttonColors(
-                        containerColor = PanthraaBlue,
-                        contentColor = Color.White,
-                        disabledContainerColor = Color(0xFFE2E8F0),
-                        disabledContentColor = Color(0xFF94A3B8),
-                    ),
-                    modifier = Modifier.heightIn(min = 44.dp),
+                Row(
+                    horizontalArrangement = Arrangement.spacedBy(6.dp),
+                    verticalAlignment = Alignment.CenterVertically,
                 ) {
-                    Icon(Icons.Filled.Add, contentDescription = null, modifier = Modifier.size(18.dp))
-                    Text(
-                        text = if (isJoiningClass) "Joining" else "Join",
-                        modifier = Modifier.padding(start = 6.dp),
-                        fontWeight = FontWeight.ExtraBold,
+                    NotificationBellButton(
+                        unreadCount = notificationUnreadCount,
+                        onClick = onOpenNotifications,
                     )
+                    Button(
+                        onClick = onJoinClass,
+                        enabled = canJoinClass,
+                        shape = RoundedCornerShape(14.dp),
+                        contentPadding = PaddingValues(horizontal = 14.dp, vertical = 10.dp),
+                        colors = ButtonDefaults.buttonColors(
+                            containerColor = PanthraaBlue,
+                            contentColor = Color.White,
+                            disabledContainerColor = Color(0xFFE2E8F0),
+                            disabledContentColor = Color(0xFF94A3B8),
+                        ),
+                        modifier = Modifier.heightIn(min = 44.dp),
+                    ) {
+                        Icon(Icons.Filled.Add, contentDescription = null, modifier = Modifier.size(18.dp))
+                        Text(
+                            text = if (isJoiningClass) "Joining" else "Join",
+                            modifier = Modifier.padding(start = 6.dp),
+                            fontWeight = FontWeight.ExtraBold,
+                        )
+                    }
                 }
             } else if (isProfessor) {
-                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                    NotificationBellButton(
+                        unreadCount = notificationUnreadCount,
+                        onClick = onOpenNotifications,
+                    )
                     Button(
                         onClick = onOpenPeople,
                         shape = RoundedCornerShape(14.dp),

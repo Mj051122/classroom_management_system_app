@@ -56,21 +56,6 @@ class AnnouncementRepository(
         }
     }
 
-    suspend fun getFacultyNotifications(
-        cachePolicy: CachePolicy = CachePolicy.USE_FRESH,
-    ): List<ClassAnnouncement> {
-        return readGuard.read(
-            key = "admin-notifications:v=$CACHE_SCHEMA_VERSION:role=professor",
-            groups = setOf(facultyNotificationsGroup()),
-            ttlMillis = ONE_MINUTE_MILLIS,
-            policy = cachePolicy,
-        ) {
-            client.postgrest.rpc(
-                function = "get_faculty_notifications",
-            ).decodeList<ClassAnnouncement>()
-        }
-    }
-
     suspend fun toggleAnnouncementReadStatus(studentId: String, announcementId: String, isRead: Boolean) {
         client.postgrest.rpc(
             function = "toggle_announcement_read_status",
@@ -186,10 +171,6 @@ class AnnouncementRepository(
         readGuard.invalidateGroup(announcementsGroup(userId))
     }
 
-    fun invalidateFacultyNotifications() {
-        readGuard.invalidateGroup(facultyNotificationsGroup())
-    }
-
     private suspend fun uploadAnnouncementImage(context: Context, professorId: String, imageUri: Uri): String {
         val resolver = context.contentResolver
         val mimeType = resolver.getType(imageUri) ?: error("Unsupported announcement image type.")
@@ -238,10 +219,6 @@ class AnnouncementRepository(
 
         private fun announcementsGroup(userId: String): String {
             return "announcements:user=$userId"
-        }
-
-        private fun facultyNotificationsGroup(): String {
-            return "admin-notifications"
         }
 
         fun readableError(throwable: Throwable): String {

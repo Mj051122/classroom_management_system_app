@@ -1,5 +1,6 @@
 package com.myapplication.panthraa.ui
 
+import com.myapplication.panthraa.model.AdminNotification
 import com.myapplication.panthraa.model.AppUser
 import com.myapplication.panthraa.model.AssignmentComment
 import com.myapplication.panthraa.model.AssignmentSubmission
@@ -51,7 +52,7 @@ data class MainUiState(
     val professorGradeMonitorSubmissions: List<ProfessorGradeMonitorSubmission> = emptyList(),
     val taskReminders: List<TaskReminder> = emptyList(),
     val classAnnouncements: List<ClassAnnouncement> = emptyList(),
-    val facultyNotifications: List<ClassAnnouncement> = emptyList(),
+    val notifications: List<AdminNotification> = emptyList(),
     val isUploadingProfilePicture: Boolean = false,
     val isUpdatingProfileDetails: Boolean = false,
     val isLoadingUsers: Boolean = false,
@@ -88,7 +89,7 @@ data class MainUiState(
     val isDeletingAnnouncement: Boolean = false,
     val isLoadingTaskReminders: Boolean = false,
     val isLoadingAnnouncements: Boolean = false,
-    val isLoadingFacultyNotifications: Boolean = false,
+    val isLoadingNotifications: Boolean = false,
     val isPostingAnnouncement: Boolean = false,
     val isSavingTaskReminder: Boolean = false,
     val isDeletingTaskReminder: Boolean = false,
